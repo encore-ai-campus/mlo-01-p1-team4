@@ -46,11 +46,11 @@ HTML 목록과 차량 API를 사용한다.
 FAQ는 로컬 서버의 HTML에서 수집한다. 별도 FAQ API는 사용하지 않는다.
 
 - 시작 주소: `http://192.168.0.51:4000/faqs`
-- 브랜드 filter: `/faqs?brand=hyundai`와 같은 query
+- 브랜드 filter: `/faqs?brand=hyundai`와 같은 query의 값을 `brand_id`로 사용
 - FAQ 영역: `[data-faq-brand-group]`
 - FAQ 한 건: `article.faq-item`
 - 현재 화면: 8개 브랜드 × 브랜드별 3문항 = 총 24문항
-- 카드에서 수집할 값: FAQ ID, 브랜드, category, 질문, 답변, 공식 source URL, 공식 자료 확인일
+- 카드에서 수집할 값: FAQ ID, source 제공 brand_id, 브랜드명, category, 질문, 답변, 공식 source URL, 공식 자료 확인일
 - 원문을 대량 복제하지 않고 로컬 서버의 교육용 질문·답변과 출처 정보만 수집한다.
 
 ## 2. Canonical field
@@ -65,7 +65,8 @@ FAQ는 로컬 서버의 HTML에서 수집한다. 별도 FAQ API는 사용하지 
 | 브랜드 | `brand` | `기아` |
 | 연식 | `model_year` | `2008` |
 | 연료 | `fuel_type` | `가솔린` |
-| 소재지 | `location` | `광주광역시 북구` |
+| 지역 | `region` | `광주광역시` |
+| 기초지역 | `base_region` | `북구` |
 | 주행거리 | `mileage_km` | `202142` |
 | 가격 | `price_krw` | `1500000` |
 | 통화 | `currency` | `KRW` |
@@ -87,11 +88,17 @@ FAQ는 로컬 서버의 HTML에서 수집한다. 별도 FAQ API는 사용하지 
 - `2025. 8. 31.` → `2025-08-31`
 - `예약중` → API 상태값 `RESERVED`
 
+지역 변환 규칙:
+
+- `광주광역시 북구` → `region = 광주광역시`, `base_region = 북구`
+- `서울특별시 강남구` → `region = 서울특별시`, `base_region = 강남구`
+
 ### 2.2 FAQ
 
 | field | 예시 |
 |---|---|
 | `faq_id` | `hyundai-support-001` |
+| `brand_id` | `hyundai` |
 | `brand` | `현대` |
 | `category` | `고객지원` |
 | `question` | FAQ 질문 heading |
@@ -100,7 +107,7 @@ FAQ는 로컬 서버의 HTML에서 수집한다. 별도 FAQ API는 사용하지 
 | `source_checked_at` | `2026-08-11` |
 | `content_hash` | 질문·답변·출처 hash |
 
-FAQ business key는 `source_id + faq_id`다. 같은 FAQ의 `content_hash`가 같으면 `skipped`, 달라지면 update한다.
+FAQ business key는 `source_id + faq_id`다. `brand_id`는 source가 제공하는 영문 브랜드 코드이고, `brand`는 표시명이다. 기업명이 변경되면 source가 제공하는 최신 `brand_id`와 `brand`를 반영한다. 같은 FAQ의 `content_hash`가 같으면 `skipped`, 달라지면 update한다.
 
 ## 3. Pipeline 흐름
 
@@ -114,7 +121,7 @@ FAQ HTML ───────→ raw ──→ FAQ document 전처리 ─→ �
 |---|---|---|
 | `collect` | `/cars` HTML 또는 차량 API 요청 | `/faqs` HTML 요청 |
 | `stage` | 원본 HTML/JSON 보존 | 원본 FAQ HTML 보존 |
-| `transform` | 숫자·가격·날짜·상태 변환 | FAQ ID·브랜드·category·질문·답변·출처 추출 |
+| `transform` | 숫자·가격·날짜·상태 변환 | FAQ ID·source brand_id·브랜드명·category·질문·답변·출처 추출 |
 | `validate` | 필수값·형식·중복 key 검사 | 필수값·출처·FAQ ID·중복 hash 검사 |
 | `load` | MySQL `car_listing` upsert | MongoDB `brand_faq` upsert |
 
@@ -122,14 +129,14 @@ FAQ HTML ───────→ raw ──→ FAQ document 전처리 ─→ �
 
 ### 차량정보
 
-- 필수값: `car_id`, `listing_number`, `title`, `brand`, `model_year`, `mileage_km`, `price_krw`, `status`, `registered_at`
+- 필수값: `car_id`, `listing_number`, `title`, `brand`, `region`, `base_region`, `model_year`, `mileage_km`, `price_krw`, `status`, `registered_at`
 - `model_year`, `mileage_km`, `price_krw`는 숫자 변환에 성공해야 한다.
 - `status`는 `AVAILABLE`, `RESERVED`, `SOLD` 중 하나여야 한다.
 - 같은 `source_id + car_id`가 한 수집 결과에 중복되면 오류로 처리한다.
 
 ### FAQ
 
-- `faq_id`, `brand`, `category`, `question`, `answer`, `source_url`, `source_checked_at`가 있어야 한다.
+- `faq_id`, `brand_id`, `brand`, `category`, `question`, `answer`, `source_url`, `source_checked_at`가 있어야 한다.
 - 질문 또는 답변이 비어 있으면 적재하지 않는다.
 - 공식 source URL이 없으면 적재하지 않는다.
 - 같은 `source_id + faq_id`의 hash가 같으면 중복 적재하지 않는다.

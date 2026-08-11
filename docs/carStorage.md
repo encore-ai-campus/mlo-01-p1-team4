@@ -32,7 +32,8 @@
 | `brand` | 브랜드 |
 | `model_year` | 연식 |
 | `fuel_type` | 연료 |
-| `location` | 차량 소재지 |
+| `region` | 광역 지역 |
+| `base_region` | 기초 지역 |
 | `mileage_km` | 주행거리(km) |
 | `price_krw` | 가격(원) |
 | `currency` | 통화 |
@@ -52,7 +53,8 @@ CREATE TABLE car_listing (
     brand           VARCHAR(80)  NOT NULL,
     model_year      SMALLINT     NOT NULL,
     fuel_type       VARCHAR(40)  NULL,
-    location        VARCHAR(160) NULL,
+    region          VARCHAR(50)  NOT NULL,
+    base_region     VARCHAR(50)  NOT NULL,
     mileage_km      INT          NOT NULL,
     price_krw       BIGINT       NOT NULL,
     currency        CHAR(3)      NULL,
@@ -65,7 +67,7 @@ CREATE TABLE car_listing (
     ingested_at     DATETIME     NOT NULL,
     PRIMARY KEY (source_id, car_id),
     UNIQUE KEY uq_car_listing_number (source_id, listing_number),
-    KEY idx_car_filter (status, brand, location, model_year),
+    KEY idx_car_filter (status, brand, region, base_region, model_year),
     KEY idx_car_price (status, price_krw),
     KEY idx_car_run (run_id)
 );
@@ -82,6 +84,7 @@ FAQ card 하나를 document 하나로 저장한다.
   "_id": "<source_id>:<faq_id>",
   "source_id": "<source_id>",
   "faq_id": "hyundai-support-001",
+  "brand_id": "hyundai",
   "brand": "현대",
   "category": "고객지원",
   "question": "FAQ 질문 heading",
@@ -105,11 +108,15 @@ db.brand_faq.createIndex(
 );
 
 db.brand_faq.createIndex(
-  { source_id: 1, brand: 1, category: 1 }
+  { source_id: 1, brand_id: 1, category: 1 }
+);
+
+db.brand_faq.createIndex(
+  { source_id: 1, brand: 1 }
 );
 ```
 
-조회 기준은 브랜드·category와 `faq_id`다. 질문·답변 full-text index는 실제 검색 요구가 생긴 뒤 추가한다.
+조회 기준은 `brand_id`·brand·category와 `faq_id`다. `brand_id`는 source가 제공하는 영문 브랜드 코드이고, `brand`는 화면 표시 기업명이다. 기업명이 변경되면 source가 제공하는 최신 `brand_id`와 `brand`를 반영한다. 질문·답변 full-text index는 실제 검색 요구가 생긴 뒤 추가한다.
 
 ## 4. 전처리 전·후 산출물과 품질 결과
 
@@ -140,6 +147,7 @@ logs/<run_id>/error.log
 - `source_id + faq_id`를 unique key로 사용한다.
 - 같은 `content_hash`면 `skipped`로 처리한다.
 - hash가 달라지면 같은 FAQ document를 update한다.
+- 기업명이 변경되면 source가 제공하는 최신 `brand_id`와 `brand`를 반영한다.
 - 질문·답변·공식 source URL·확인일이 없는 document는 적재하지 않는다.
 
 ## 6. 예시
@@ -155,7 +163,8 @@ logs/<run_id>/error.log
   "brand": "기아",
   "model_year": 2008,
   "fuel_type": "가솔린",
-  "location": "광주광역시 북구",
+  "region": "광주광역시",
+  "base_region": "북구",
   "mileage_km": 202142,
   "price_krw": 1500000,
   "currency": "KRW",
@@ -169,6 +178,7 @@ logs/<run_id>/error.log
 ```json
 {
   "faq_id": "hyundai-support-001",
+  "brand_id": "hyundai",
   "brand": "현대",
   "category": "고객지원",
   "question": "FAQ 질문 heading",
