@@ -8,21 +8,6 @@
 
 Day21 교안의 원래 자동차 등록 통계 source 대신, 현재 팀 결정에 따라 로컬 서버의 차량 목록을 vehicle source로 사용한다. 따라서 이 문서의 차량 field는 등록 통계의 기준월·지역별 집계 field가 아니라 로컬 목록 field다.
 
-## 0. 1일차 공통 완료선
-
-| 교안 기준 | 현재 프로젝트 반영 |
-|---|---|
-| source와 수집 범위 확정 | 로컬 `/cars` 차량정보와 `/faqs` FAQ를 source로 고정 |
-| 수집·전처리·적재 흐름 | 차량은 MySQL, FAQ는 MongoDB로 분리 |
-| 품질검증 | 전처리 전·후 JSON/CSV와 input·accepted·rejected·loaded 건수 비교 |
-| 주기 실행 | Day1 smoke는 한 번 실행하고, 이후 cron 또는 APScheduler로 주기 설정 |
-| 실행 관리 | run_id, track, stage, 상태, 건수, 오류를 log로 기록 |
-| AWS 연결 | 승인된 MySQL/MongoDB target에 소량 sample만 연결 확인 |
-
-Day1에는 전체 차량 수집, FAQ 대량 수집, production 장애조치를 하지 않는다.
-
-필수 산출물은 이 두 설계 문서와 함께 MySQL DDL·ERD, MongoDB document·index·query, 전처리 전·후 CSV/JSON, 품질 결과, README, `requirements.txt`, `.env.example`, 실행 log로 구성한다.
-
 ## 1. 수집 source
 
 ### 1.1 차량정보
@@ -157,29 +142,3 @@ collected_at
 ```
 
 Day21 1일차에는 차량 1건과 FAQ 1건 fixture로 차량은 MySQL에, FAQ는 MongoDB에 연결되는지 확인한다. 전체 차량 수집과 FAQ 대량 수집은 오늘 범위가 아니다.
-
-## 6. schedule·log
-
-### schedule
-
-- Day1: `--once` 또는 수동 실행
-- 이후: 고객 설정에 따라 cron 또는 APScheduler 사용
-- schedule 값과 timezone은 source/환경 설정으로 관리한다.
-
-### log
-
-```text
-run_id
-track: vehicle | faq
-stage: collect | transform | validate | load
-status: running | success | failed
-input_count
-accepted_count
-rejected_count
-loaded_count
-error_code
-started_at
-finished_at
-```
-
-API key와 credential은 log에 기록하지 않는다.
