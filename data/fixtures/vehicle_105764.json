@@ -1,0 +1,54 @@
+{
+  "id": 105764,
+  "listingNumber": "UC-00105764",
+  "title": "2018 기아 EV6 롱레인지",
+  "description": "2018 기아 EV6 롱레인지, 주행거리 91,516km의 수업용 가상 중고차 매물입니다. 실제 차량번호나 연락처를 포함하지 않습니다.",
+  "brand": {
+    "id": 2,
+    "name": "기아",
+    "slug": "kia",
+    "country": "대한민국"
+  },
+  "model": {
+    "id": 17,
+    "name": "EV6",
+    "slug": "ev6",
+    "bodyType": "suv"
+  },
+  "trim": "롱레인지",
+  "modelYear": 2018,
+  "firstRegistration": "2018-01-05",
+  "mileageKm": 91516,
+  "fuelType": "전기",
+  "transmission": "자동",
+  "price": 17300000,
+  "currency": "KRW",
+  "color": "검정색",
+  "displacementCc": 0,
+  "accidentCount": 1,
+  "ownerChangeCount": 2,
+  "inspectionStatus": "점검완료",
+  "status": "AVAILABLE",
+  "location": {
+    "id": 11,
+    "province": "인천광역시",
+    "city": "서구",
+    "slug": "incheon-2"
+  },
+  "dealer": {
+    "code": "DLR-cbeeb2c9b9",
+    "displayName": "교○○",
+    "department": "품질관리팀",
+    "position": "대리"
+  },
+  "businessArea": {
+    "id": "BIZ_01294",
+    "name": "호남영업플랫폼 1294",
+    "parent": {
+      "id": "BIZ_00047",
+      "name": "제주영업 47"
+    }
+  },
+  "createdAt": "2026-08-11T08:20:00.012Z",
+  "updatedAt": "2026-08-11T08:20:00.012Z"
+}
