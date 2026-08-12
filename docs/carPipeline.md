@@ -1,8 +1,16 @@
 # 차량정보·FAQ 수집·전처리 파이프라인 (`carPipeline`)
 
+<!--
+이 문서는 실행 코드가 아니라 수집부터 DB 적재까지의 처리 규칙을 정의하는 설계 문서다.
+차량과 FAQ를 각각 어떤 source에서 가져오고, 어떤 표준 필드로 변환하고,
+어떤 품질검사를 거쳐 어느 저장소에 넣을지 설명한다.
+-->
+
 > source: [AutoData Lab](http://192.168.0.51:4000/)  
 > 차량 target: MySQL `car_listing`  
 > FAQ target: MongoDB `brand_faq`
+
+<!-- source는 데이터 출처, target은 전처리 후 데이터가 도착하는 최종 저장소를 뜻한다. -->
 
 로컬 서버에서 차량 목록과 브랜드 FAQ를 각각 수집하고, 서로 다른 형태에 맞게 전처리한 뒤 저장한다.
 
@@ -10,7 +18,14 @@ Day21 교안의 원래 자동차 등록 통계 source 대신, 현재 팀 결정�
 
 ## 1. 수집 source
 
+<!--
+이 절은 실제 수집 대상과 수집 방법을 고정한다.
+차량은 /cars의 HTML/API, FAQ는 /faqs의 HTML을 기준으로 한다.
+-->
+
 ### 1.1 차량정보
+
+<!-- CSS 선택자는 HTML에서 차량 카드와 필드를 찾는 규칙이다. API를 사용할 때는 응답의 data와 links.next를 기준으로 페이지를 이어간다. -->
 
 HTML 목록과 차량 API를 사용한다.
 
@@ -28,6 +43,8 @@ HTML 목록과 차량 API를 사용한다.
 
 ### 1.2 FAQ
 
+<!-- FAQ는 질문·답변뿐 아니라 브랜드, 카테고리, 공식 출처와 확인일도 함께 수집해 나중에 출처를 추적할 수 있게 한다. -->
+
 FAQ는 로컬 서버의 HTML에서 수집한다. 별도 FAQ API는 사용하지 않는다.
 
 - 시작 주소: `http://192.168.0.51:4000/faqs`
@@ -40,7 +57,14 @@ FAQ는 로컬 서버의 HTML에서 수집한다. 별도 FAQ API는 사용하지 
 
 ## 2. Canonical field
 
+<!--
+Canonical field는 원본의 서로 다른 필드명을 우리 시스템의 표준 이름으로 통일한 값이다.
+예를 들어 modelYear는 model_year로, 202,142km는 202142로 변환한다.
+-->
+
 ### 2.1 차량정보
+
+<!-- car_id는 차량 식별자이고, 화면의 순번은 페이지가 바뀌면 달라지므로 식별자로 사용하지 않는다. -->
 
 | 화면 항목 | 저장 field | 예시 |
 |---|---|---|
@@ -80,6 +104,8 @@ FAQ는 로컬 서버의 HTML에서 수집한다. 별도 FAQ API는 사용하지 
 
 ### 2.2 FAQ
 
+<!-- FAQ의 source_id와 faq_id는 문서 식별에 사용하고, content_hash는 질문·답변 내용의 변경 여부를 확인하는 지문이다. -->
+
 | field | 예시 |
 |---|---|
 | `faq_id` | `hyundai-support-001` |
@@ -95,6 +121,11 @@ FAQ는 로컬 서버의 HTML에서 수집한다. 별도 FAQ API는 사용하지 
 FAQ business key는 `source_id + faq_id`다. `brand_id`는 source가 제공하는 영문 브랜드 코드이고, `brand`는 표시명이다. 기업명이 변경되면 source가 제공하는 최신 `brand_id`와 `brand`를 반영한다. 같은 FAQ의 `content_hash`가 같으면 `skipped`, 달라지면 update한다.
 
 ## 3. Pipeline 흐름
+
+<!--
+collect는 수집, stage는 원본 보관, transform은 표준화, validate는 품질검사,
+load는 DB 적재 단계다. raw는 원본이고 processed는 변환 결과다.
+-->
 
 ```text
 차량 HTML/API ──→ raw ──→ 차량 field 전처리 ──→ 품질검사 ──→ MySQL car_listing
@@ -112,6 +143,8 @@ FAQ HTML ───────→ raw ──→ FAQ document 전처리 ─→ �
 
 ## 4. 품질 기준
 
+<!-- 필수값·자료형·허용 상태·중복 여부를 검사하고, 기준을 통과하지 못한 record는 DB에 넣지 않는다. -->
+
 ### 차량정보
 
 - 필수값: `car_id`, `listing_number`, `title`, `brand`, `region`, `base_region`, `model_year`, `mileage_km`, `price_krw`, `status`, `registered_at`
@@ -127,6 +160,12 @@ FAQ HTML ───────→ raw ──→ FAQ document 전처리 ─→ �
 - 같은 `source_id + faq_id`의 hash가 같으면 중복 적재하지 않는다.
 
 ## 5. 실행 결과
+
+<!--
+실행 결과의 count는 track(vehicle/faq)별로 기록한다.
+input은 입력 수, accepted는 통과 수, rejected는 오류 수,
+skipped는 같은 내용이라 건너뛴 수, loaded는 신규 저장 또는 갱신 수다.
+-->
 
 한 번의 실행마다 track별로 다음 값을 남긴다.
 

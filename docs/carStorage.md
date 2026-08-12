@@ -1,14 +1,23 @@
 # 차량정보·FAQ 저장소 설계 (`carStorage`)
 
+<!--
+이 문서는 carPipeline에서 처리한 데이터를 실제 DB에 어떤 구조로 저장할지 정의한다.
+차량은 MySQL의 행(row), FAQ는 MongoDB의 document로 저장한다.
+-->
+
 > source: [AutoData Lab](http://192.168.0.51:4000/)  
 > 차량정보: MySQL  
 > FAQ: MongoDB
+
+<!-- 차량은 정형 필드와 조건 검색이 중심이고, FAQ는 질문·답변 문서 조회가 중심이어서 저장소를 분리한다. -->
 
 차량정보와 FAQ는 구조와 조회 방식이 다르므로 저장소를 분리한다.
 
 차량정보는 현재 팀이 선택한 로컬 목록 source를 기준으로 하고, FAQ는 로컬 `/faqs` HTML을 기준으로 한다.
 
 ## 1. 저장소 결정
+
+<!-- table은 MySQL 테이블, collection은 MongoDB 문서 모음이다. -->
 
 | 데이터 | 저장소 | collection/table |
 |---|---|---|
@@ -17,7 +26,11 @@
 
 ## 2. MySQL 차량 table
 
+<!-- 차량 매물 한 건을 car_listing의 한 행으로 저장한다. -->
+
 ### `car_listing` 한 행
+
+<!-- source_id + car_id가 같은 차량을 식별하는 business key이고, listing_number는 별도로 중복을 검사한다. -->
 
 차량 목록의 매물 한 건을 저장한다.
 
@@ -41,6 +54,8 @@
 내부 적재 추적용으로 `record_hash`, `run_id`, `quality_status`, `collected_at`, `ingested_at`을 함께 둔다. 화면의 `번호`는 page 순번이라 저장하지 않는다.
 
 ### DDL 초안
+
+<!-- DDL은 테이블을 생성하기 위한 SQL이다. PRIMARY KEY는 고유 식별자, UNIQUE KEY는 중복 방지, KEY는 조회 성능을 위한 인덱스다. -->
 
 ```sql
 CREATE TABLE car_listing (
@@ -73,7 +88,11 @@ CREATE TABLE car_listing (
 
 ## 3. MongoDB FAQ collection
 
+<!-- FAQ 하나를 brand_faq의 document 하나로 저장한다. document는 JSON과 비슷한 MongoDB의 문서 단위다. -->
+
 ### `brand_faq` 한 document
+
+<!-- _id와 source_id·faq_id는 FAQ 식별에 사용하고, content_hash는 질문·답변 변경 여부 확인에 사용한다. -->
 
 FAQ card 하나를 document 하나로 저장한다.
 
@@ -99,6 +118,8 @@ FAQ card 하나를 document 하나로 저장한다.
 
 ### Index
 
+<!-- 인덱스는 자주 사용하는 브랜드·카테고리·FAQ ID 조회를 빠르게 하며 unique 옵션은 중복을 막는다. -->
+
 ```javascript
 db.brand_faq.createIndex(
   { source_id: 1, faq_id: 1 },
@@ -118,7 +139,11 @@ db.brand_faq.createIndex(
 
 ## 4. 적재 규칙
 
+<!-- upsert는 데이터가 없으면 insert하고, 이미 있으면 update하는 처리다. 같은 hash면 skip한다. -->
+
 ### 차량정보
+
+<!-- 차량은 source_id + car_id로 찾고, record_hash가 같으면 변경 없음으로 판단한다. -->
 
 - `source_id + car_id`가 같으면 같은 차량으로 보고 MySQL upsert한다.
 - 같은 `record_hash`면 `skipped`로 처리한다.
@@ -128,6 +153,8 @@ db.brand_faq.createIndex(
 
 ### FAQ
 
+<!-- FAQ는 source_id + faq_id로 찾고, content_hash가 같으면 변경 없음으로 판단한다. -->
+
 - `source_id + faq_id`를 unique key로 사용한다.
 - 같은 `content_hash`면 `skipped`로 처리한다.
 - hash가 달라지면 같은 FAQ document를 update한다.
@@ -135,6 +162,8 @@ db.brand_faq.createIndex(
 - 질문·답변·공식 source URL·확인일이 없는 document는 적재하지 않는다.
 
 ## 5. 예시
+
+<!-- 아래 예시는 설계한 표준 필드가 실제 한 건의 차량 record와 FAQ document로 표현되는 형태다. -->
 
 ### 차량 record
 
@@ -173,6 +202,8 @@ db.brand_faq.createIndex(
 ```
 
 ## 6. Day21 확인 범위
+
+<!-- Day21 1일차에는 전체 수집이 아니라 차량 1건·FAQ 1건으로 전처리와 샘플 적재 경로만 확인한다. -->
 
 1. 차량 HTML/API 한 건을 받아 전처리 후 MySQL `car_listing`에 적재한다.
 2. FAQ HTML 한 건을 받아 전처리 후 MongoDB `brand_faq`에 적재한다.
