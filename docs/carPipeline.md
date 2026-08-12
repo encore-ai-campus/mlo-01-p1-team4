@@ -90,7 +90,7 @@ $env:MYSQL_HOST="127.0.0.1"
 $env:MYSQL_PORT="3306"
 $env:MYSQL_DATABASE="project1"
 $env:MYSQL_USER="root"
-$env:MYSQL_PASSWORD="비밀번호"
+$env:MYSQL_PASSWORD="mysql"
 
 python .\src\loader.py `
   --input .\data\fixtures\vehicle_105764.json
