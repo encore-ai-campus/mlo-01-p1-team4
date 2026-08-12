@@ -1,31 +1,46 @@
-# 중고차 데이터 파이프라인 설계
+# 중고차 API 데이터 파이프라인
 
-이 문서는 **로컬 서버의 중고차 JSON을 MySQL에 저장하는 기본 처리 흐름**을 설명한다.
-Python 함수로 데이터를 읽고 정리한 뒤 SQL `INSERT`와 `SELECT`로 저장 결과를 확인한다.
+이 문서는 현재 Git 프로젝트의 `src/car_api_crawler.py`와 `src/loader.py`가
+실제로 수행하는 차량 수집·전처리·MySQL 적재 흐름을 설명한다.
 
-## 1. 처리 범위
-
-```text
-JSON 파일
-  → 값 정리
-  → 필수값 확인
-  → MySQL INSERT
-  → SELECT로 확인
-```
-
-입력은 테스트용 중고차 JSON 한 건으로 시작한다. 처리 결과는 MySQL의 한 행으로 저장하고, 저장 후 `SELECT` 결과로 내용을 확인한다. 같은 `car_id`가 다시 입력되면 `PRIMARY KEY`(고유 식별자) 규칙과 오류 메시지를 통해 중복 여부를 확인한다.
-
-## 2. 입력
-
-입력 파일:
+## 1. 전체 흐름
 
 ```text
-data/fixtures/vehicle_105764.json
+공개 키 API
+  → 차량 목록 API 페이지 요청
+  → 응답 data에서 차량 목록 추출
+  → loader.py에서 필드 변환·검증
+  → MySQL car_listing upsert
+  → 실행 전후 행 개수 비교
+  → 로그 기록
+  → links.next가 있으면 다음 페이지 처리
 ```
 
-원본 JSON에서 DB에 필요한 값을 꺼내 표준 컬럼명으로 바꾼다.
+차량 수집의 실행 파일은 `src/car_api_crawler.py`다. `src/loader.py`는
+크롤러가 전달한 차량 목록을 정리하고 저장하며, 단독 CLI 프로그램으로
+사용하는 구조는 아니다.
 
-| 원본 값 | 저장할 이름 |
+## 2. API 입력
+
+```python
+BASE_URL = "http://192.168.0.51:4000"
+PUBLIC_KEY_PATH = "/api/v1/public-key"
+CARS_PATH = "/api/v1/cars"
+PAGE_SIZE = 20
+MAX_PAGES = 2
+```
+
+- `/api/v1/public-key`에서 `data.current.api_key`를 가져온다.
+- 차량 API 요청에는 `X-API-Key` header를 사용한다.
+- 첫 페이지에는 `sort=newest`, `page_size=20`을 보낸다.
+- 응답의 차량 목록은 `payload.data`에서 가져온다.
+- 다음 페이지는 `payload.links.next`를 사용한다.
+- `MAX_PAGES=2`이면 1~2페이지를 처리하고, `MAX_PAGES=0`이면
+  다음 페이지가 없을 때까지 처리한다.
+
+## 3. 원본 필드와 MySQL 컬럼
+
+| API 원본 | MySQL 컬럼 |
 |---|---|
 | `id` | `car_id` |
 | `location.province` | `region` |
@@ -38,106 +53,75 @@ data/fixtures/vehicle_105764.json
 | `status` | `status` |
 | `firstRegistration` | `registration_date` |
 
-`brand.name`처럼 점으로 표시한 값은 JSON 안의 `brand` 객체에서 `name`을 꺼낸다는 뜻이다.
+연식·주행거리·가격은 정수로 변환하고, 등록일은 `DATE` 값으로 변환한다.
+`status`는 `AVAILABLE`, `RESERVED`, `SOLD`만 허용한다.
 
-## 3. 처리 단계
+## 4. 처리 단계
 
-### 3.1 읽기
+1. `car_api_crawler.py`가 공개 키를 받고 차량 페이지를 요청한다.
+2. `get_cars()`가 응답의 `data` 목록을 꺼낸다.
+3. `insert_cars()`가 각 차량을 `normalize_car()`로 변환한다.
+4. `validate_car()`가 필수값과 상태값을 검사한다.
+5. 검사를 통과한 차량을 한 transaction으로 MySQL에 저장한다.
+6. 저장 중 오류가 발생하면 해당 transaction을 rollback한다.
+7. 저장 성공 후에만 `links.next`를 확인해 다음 페이지로 이동한다.
 
-`loader.py`가 JSON 파일을 읽어 Python dictionary(키와 값의 묶음)로 만든다.
+## 5. 실행
 
-### 3.2 정리
-
-원본 필드명을 MySQL 컬럼 이름으로 바꾸고, 연식·주행거리·가격을 정수로 변환한다.
-
-### 3.3 확인
-
-다음 필드를 차량 데이터의 필수값으로 검사한다.
-
-```text
-car_id, region, sub_region, brand, model_year,
-fuel_type, mileage_km, price_krw, status, registration_date
-```
-
-`status`는 `AVAILABLE`, `RESERVED`, `SOLD` 중 하나로 관리한다.
-
-### 3.4 저장
-
-검사를 통과한 차량 한 건을 `car_listing` 테이블에 `INSERT`한다.
-
-`INSERT`(새 행을 추가하는 SQL)로 저장하고 `SELECT`(저장된 행을 조회하는 SQL)로 결과를 확인한다.
-
-## 4. 실행
-
-먼저 패키지를 설치한다.
+프로젝트 루트에서 실행한다.
 
 ```powershell
-python -m pip install -r requirements.txt
-```
+python -m pip install -r .\src\requirements.txt
 
-DB에 넣기 전에 변환 결과만 확인한다.
-
-```powershell
-python .\src\loader.py `
-  --input .\data\fixtures\vehicle_105764.json `
-  --dry-run
-```
-
-실제 적재는 MySQL 접속 환경변수를 설정한 뒤 실행한다.
-
-```powershell
 $env:MYSQL_HOST="127.0.0.1"
 $env:MYSQL_PORT="3306"
 $env:MYSQL_DATABASE="project1"
 $env:MYSQL_USER="root"
-$env:MYSQL_PASSWORD="mysql"
+$env:MYSQL_PASSWORD="실제 비밀번호"
 
-python .\src\loader.py `
-  --input .\data\fixtures\vehicle_105764.json
+python .\src\car_api_crawler.py
 ```
 
-비밀번호는 실행할 때 환경변수로 전달한다.
+테이블은 먼저 `sql/project1_schema.sql`을 실행해 만든다.
 
-## 5. 결과 확인
+품질 검증은 다음 명령으로 실행한다.
 
-실행 결과에서 다음을 확인한다.
+```powershell
+python .\src\vehicle_quality.py
+```
+
+검증 결과는 프로젝트 루트의 `quality_check_output` 아래에 저장된다.
+
+## 6. 중복 처리와 실행 결과
+
+`car_id`는 `car_listing`의 기본키다. 같은 `car_id`가 다시 들어오면
+`ON DUPLICATE KEY UPDATE`로 기존 행을 갱신한다.
+
+페이지 로그 기준:
 
 ```text
-input_count   입력 건수
-valid_count   검사 통과 건수
-rejected_count 검사 실패 건수
-loaded_count  INSERT 건수
+input_count       = 현재 API 페이지에서 받은 차량 수
+processed_count   = 현재 페이지에서 변환·검증·저장한 차량 수
+loaded_count      = 실행 시작 이후 신규 INSERT 누적 수
+duplicate_count   = 실행 시작 이후 기존 car_id 처리 누적 수
 ```
 
-그 다음 MySQL에서 직접 확인한다.
-
-```sql
-USE project1;
-
-SELECT car_id, region, sub_region, brand, model_year,
-       fuel_type, mileage_km, price_krw, status, registration_date
-FROM car_listing;
-```
-
-## 6. 수정할 때 보는 곳
-
-필드가 추가되거나 이름이 바뀌면 `loader.py`의 `normalize_car()`와 `INSERT` 문을 함께 수정한다.
-
-테이블 컬럼이 바뀌면 `carStorage.md`의 DDL(테이블 생성 SQL)과 loader의 `INSERT` 문을 같은 순서로 수정한다.
-
-수정 순서는 다음과 같다.
+전체 실행 로그는 다음 필드를 사용한다.
 
 ```text
-입력 JSON 확인
-  → carStorage.md의 컬럼 수정
-  → loader.py의 normalize_car 수정
-  → INSERT 문 수정
-  → SELECT로 확인
+total_input       = 전체 페이지에서 받은 차량 수
+total_processed   = 전체 페이지에서 처리한 차량 수
+loaded_count      = 실행 후 전체 행 수 - 실행 전 전체 행 수
+duplicate_count   = total_processed - loaded_count
 ```
+
+실행 전후 행 개수 비교는 같은 시간에 다른 작업이 `car_listing`에
+INSERT 또는 DELETE하지 않는다는 전제에서 사용한다.
 
 ## 7. FAQ 저장 구조
 
-FAQ는 `brand_faq` collection에 document 한 건씩 저장한다. FAQ document의 기준 필드는 다음과 같다.
+FAQ 수집·MongoDB 적재는 차량 Python 크롤러와 별도 담당이다. FAQ는
+`brand_faq` collection에 document 한 건씩 저장한다.
 
 | 원본 의미 | 저장할 이름 |
 |---|---|
@@ -152,4 +136,5 @@ FAQ는 `brand_faq` collection에 document 한 건씩 저장한다. FAQ document�
 | 원본 링크 | `source_url` |
 | 수집일 | `collected_at` |
 
-차량은 `car_listing` 테이블, FAQ는 `brand_faq` collection을 사용한다. 차량 JSON 처리와 FAQ document 처리는 서로 다른 저장 방식에 맞춰 각각의 코드와 절차로 구성한다.
+차량 Python 파이프라인은 차량 API와 MySQL `car_listing`을 처리하고,
+FAQ pipeline은 별도 담당으로 유지한다.

@@ -1,136 +1,99 @@
 # car_api_crawler.py 메모
 
 ## 역할
-로컬 중고차 API에서 차량을 가져와 `loader.py`에 넘긴다.
+
+`src/car_api_crawler.py`는 로컬 중고차 API에서 차량을 페이지 단위로
+가져와 `src/loader.py`에 전달하고, MySQL 저장 결과를 로그로 남긴다.
 
 ```text
-API 키 → 자동차 API → 차량 목록 → loader → 로그 → 다음 페이지
+공개 키 → 차량 API → data 목록 → loader.py → MySQL → 로그 → 다음 페이지
 ```
 
-## 실행
-```python
-if __name__ == "__main__":
-    main()
-```
-파일을 실행하면 `main()`이 실행되고 `collect_and_save()`를 부른다.
+## 주소와 설정
 
-## 주소
 ```python
 BASE_URL = "http://192.168.0.51:4000"
 PUBLIC_KEY_PATH = "/api/v1/public-key"
 CARS_PATH = "/api/v1/cars"
+PAGE_SIZE = 20
+MAX_PAGES = 2
 ```
-```python
-api_source = BASE_URL + CARS_PATH
-next_url = api_source
-```
-첫 자동차 API 주소는 `http://192.168.0.51:4000/api/v1/cars`이다.
+
+- `PAGE_SIZE`는 한 페이지 요청 건수다.
+- `MAX_PAGES`는 처리할 최대 페이지 수다.
+- `MAX_PAGES=2`는 1페이지부터 2페이지까지 처리한다.
+- `MAX_PAGES=0`은 API의 다음 페이지가 없어질 때까지 처리한다.
+- 로그 파일은 `src/car_api_crawler.log`다.
 
 ## API 키
+
 ```python
 api_key = get_api_key()
 ```
-`get_api_key()`는 `/api/v1/public-key`에서 `data.current.api_key`를 꺼낸다.
+
+`get_api_key()`는 `/api/v1/public-key`를 호출하고 응답의
+`data.current.api_key` 값을 사용한다. 이 키를 파일·로그에 저장하지 않고
+차량 API 요청의 `X-API-Key` header에만 넣는다.
 
 ## 페이지 요청
-```python
-payload = fetch_page(next_url, api_key, is_first_page)
-```
-여기서 `next_url`이 `fetch_page()`의 `url`로 들어간다.
-`fetch_page()`는 API 키를 헤더에 넣어 요청한다.
-```python
-headers={"X-API-Key": api_key}
-```
+
 첫 페이지에는 다음 조건을 보낸다.
+
 ```python
 params = {"sort": "newest", "page_size": PAGE_SIZE}
+headers = {"X-API-Key": api_key}
 ```
-`newest`는 최신 등록순이다.
 
-## 차량 목록
-```python
-cars = get_cars(payload)
-```
-`payload`는 API 응답 전체이고, `get_cars()`는 그 안의 `data`만 꺼낸다.
+첫 페이지 이후에는 API 응답의 다음 주소를 그대로 요청한다.
+현재 코드는 `payload.links.next`를 읽어 다음 URL을 만든다.
+
 ```python
 cars = payload.get("data")
+next_url = payload.get("links", {}).get("next")
 ```
-따라서 `cars`는 차량 목록이다.
-차량이 없으면 로그를 남기고 반복을 끝낸다.
 
-## loader 호출
+차량 목록이 비어 있으면 해당 로그를 남기고 수집을 종료한다.
+
+## 처리와 저장
+
 ```python
 processed_count = insert_cars(cars)
 ```
-차량 정리, 검증, MySQL 저장은 `loader.py`가 담당한다.
-`insert_cars()`의 반환값은 신규 INSERT 수가 아니라 현재 페이지에서 처리한 차량 수다.
-저장 성공 시 `PASS`, 실패 시 `FAIL` 로그를 남긴다.
 
-## 전체 개수 확인
-크롤러 시작 전에 `car_listing` 전체 행 개수를 확인한다.
+`insert_cars()`는 차량 필드를 정리하고 필수값과 상태값을 검증한 뒤
+`ON DUPLICATE KEY UPDATE` 방식으로 MySQL에 저장한다. 반환값은 신규
+INSERT 수가 아니라 현재 페이지에서 처리한 차량 수다.
 
-```python
-before_count = count_car_listings()
-```
+크롤러는 실행 전 `car_listing` 개수를 저장하고, 각 페이지 저장 후와 실행
+종료 후 개수를 다시 조회한다.
 
-현재 페이지 적재 후 전체 행 개수를 다시 확인한다.
-
-```python
-current_count = count_car_listings()
-```
-
-실행 시작 후 새로 INSERT된 누적 수를 계산한다.
-
-```python
-loaded_count = current_count - before_count
-```
-
-모든 페이지 처리가 끝나면 실행 후 전체 행 개수로 최종 `loaded_count`를 다시 계산한다.
-`duplicate_count`는 처리한 차량 수에서 `loaded_count`를 뺀 값이다.
-
-## 다음 페이지
-```python
-next_url = get_next_url(payload)
-```
-`get_next_url()`은 응답의 `links.next`를 확인한다.
 ```text
-next 주소 있음 → 다음 페이지 요청
-next 주소 없음 → 수집 종료
+loaded_count = after_count - before_count
+duplicate_count = total_processed - loaded_count
 ```
-현재 페이지 저장이 성공한 뒤에만 다음 주소를 가져오며, `while next_url:` 동안 반복한다.
-
-## 페이지 설정
-```python
-PAGE_SIZE = 20
-MAX_PAGES = 5
-```
-`PAGE_SIZE`는 한 페이지의 차량 수다.
-`MAX_PAGES`는 처리할 최대 페이지 수다.
-```text
-1 → 1페이지
-2 → 1페이지부터 2페이지
-0 → 마지막 페이지까지
-```
-`MAX_PAGES = 2`는 2페이지부터 시작한다는 뜻이 아니다.
 
 ## 로그
-로그 파일은 `config/car_api_crawler.log`이다.
-시간, API 출처, 페이지, 저장 결과, 차량 수를 기록한다.
+
+페이지 로그의 `loaded_count`, `duplicate_count`는 현재 페이지까지의
+실행 누적값이다.
+
 ```text
 mysql_insert=PASS input_count=20 processed_count=20 loaded_count=17 duplicate_count=3
 ```
-로그 필드 순서는 `input_count → processed_count → loaded_count → duplicate_count`다.
 
-`input_count`와 `processed_count`는 현재 페이지의 값이다.
-`loaded_count`와 `duplicate_count`는 현재 페이지까지의 실행 누적값이다.
-
-모든 페이지 처리가 끝나면 전체 실행 결과를 추가로 기록한다.
+전체 실행이 끝나면 다음과 같은 실행 로그를 추가한다.
 
 ```text
-run_status=PASS input_count=40 processed_count=40 loaded_count=17 duplicate_count=23 before_count=100 after_count=117
+run_status=PASS total_input=40 total_processed=40 loaded_count=17 duplicate_count=23 before_count=100 after_count=117
 ```
 
-`loaded_count`는 실행 전후 `car_listing` 전체 행 개수 차이로 계산한다.
-크롤러는 크론탭에서 정해진 주기로 실행한다.
-## 한 줄 정리
-API에서 차량을 페이지별로 가져와 loader에 넘기고 결과를 기록한다.
+API 요청 또는 MySQL 저장 중 오류가 나면 `FAIL` 또는 `NOT_RUN` 로그를
+남기고 오류를 출력한다.
+
+## 실행
+
+프로젝트 루트에서 다음처럼 실행한다.
+
+```powershell
+python .\src\car_api_crawler.py
+```
