@@ -1,5 +1,9 @@
 # loader.py 메모
 
+## 로컬 비밀번호 재설정법 
+nano ~/.project1.env
+
+
 ## 역할
 Crawler가 가져온 차량을 정리해서 MySQL에 저장한다.
 
