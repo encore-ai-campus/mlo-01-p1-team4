@@ -1,9 +1,5 @@
 # loader.py 메모
 
-## 로컬 비밀번호 재설정법 
-nano ~/.project1.env
-
-
 ## 역할
 Crawler가 가져온 차량을 정리해서 MySQL에 저장한다.
 
@@ -16,9 +12,11 @@ Crawler가 가져온 차량을 정리해서 MySQL에 저장한다.
 ## 호출
 Crawler에서 다음 코드로 시작한다.
 ```python
-loaded_count = insert_cars(cars)
+processed_count = insert_cars(cars)
 ```
 `cars`는 API에서 받은 차량 여러 건이다.
+`insert_cars()`의 반환값은 현재 페이지에서 처리한 차량 수다.
+신규 INSERT 수는 `loader.py`가 직접 반환하지 않는다.
 
 ## 함수 순서
 ```text
@@ -77,6 +75,20 @@ for car in cars:
 모두 성공하면 `connection.commit()`으로 확정한다.
 하나라도 실패하면 `connection.rollback()`으로 이번 페이지 저장을 취소한다.
 
+## count_car_listings()
+`car_listing` 테이블의 전체 행 개수를 확인한다.
+
+```sql
+SELECT COUNT(*) FROM car_listing;
+```
+
+크롤러가 실행 전과 실행 후에 이 함수를 호출한다.
+실행 전후 개수 차이로 신규 `loaded_count`를 계산한다.
+
+```text
+loaded_count = 실행 후 전체 행 개수 - 실행 전 전체 행 개수
+```
+
 ## 중복 처리
 `car_id`는 `car_listing`의 기본키다.
 SQL의 `ON DUPLICATE KEY UPDATE`는 다음처럼 작동한다.
@@ -88,11 +100,14 @@ SQL의 `ON DUPLICATE KEY UPDATE`는 다음처럼 작동한다.
 내용이 같으면 그대로이고 값이 다르면 최신 값으로 바뀐다.
 
 ## 로그 연결
-Loader가 저장한 건수를 Crawler에 돌려준다.
+Loader가 현재 페이지의 처리 건수를 Crawler에 돌려준다.
 ```text
 input_count=20
-loaded_count=20
+processed_count=20
+loaded_count=17
+duplicate_count=3
 ```
+`loaded_count`와 `duplicate_count`는 Crawler가 전체 행 개수와 처리 건수로 계산한다.
 저장 오류가 나면 rollback하고 오류를 Crawler에 전달한다.
 그러면 Crawler가 실패 로그를 남긴다.
 

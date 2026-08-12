@@ -5,7 +5,7 @@ from pathlib import Path
 
 import requests
 
-from loader import insert_cars
+from loader import count_car_listings, insert_cars
 
 
 # API 주소와 실행 조건은 여기서 수정한다.
@@ -16,7 +16,7 @@ PAGE_SIZE = 20
 
 # 처음에는 한 페이지만 수집해서 확인한다.
 # 전체 페이지를 수집하려면 0으로 바꾼다.
-MAX_PAGES = 10
+MAX_PAGES = 2
 REQUEST_TIMEOUT = 10
 LOG_FILE = Path(__file__).with_name("car_api_crawler.log")
 
@@ -99,11 +99,14 @@ def collect_and_save():
     api_source = BASE_URL + CARS_PATH
     api_key = get_api_key()
 
+    # 크롤링 시작 전 car_listing 전체 행 개수를 확인한다.
+    before_count = count_car_listings()
+
     # 첫 요청 주소는 BASE_URL과 CARS_PATH를 합쳐서 만든다.
     next_url = api_source
     page_number = 1
-    total_count = 0
-    total_loaded = 0
+    total_input = 0
+    total_processed = 0
 
     # next_url에 주소가 들어 있는 동안 페이지 수집을 반복한다.
     # next_url이 None이 되면 더 가져올 페이지가 없다는 뜻이다.
@@ -130,47 +133,78 @@ def collect_and_save():
         if not cars:
             write_log(
                 f"api_source={api_source} page={page_number} "
-                "mysql_insert=PASS input_count=0 loaded_count=0"
+                "mysql_insert=PASS input_count=0 processed_count=0 "
+                "loaded_count=0 duplicate_count=0"
             )
             break
 
+        input_count = len(cars)
+
         # 차량 목록을 loader.py로 보내 정제·검증한 뒤 MySQL에 저장한다.
         try:
-            loaded_count = insert_cars(cars)
+            processed_count = insert_cars(cars)
         except Exception as error:
             # 저장 중 오류가 나면 오류 내용을 문자열로 바꿔 로그에 남긴다.
             message = str(error).replace("\n", " ")
             write_log(
                 f"api_source={api_source} page={page_number} "
-                f"mysql_insert=FAIL input_count={len(cars)} error={message}"
+                f"mysql_insert=FAIL input_count={input_count} "
+                "processed_count=0 loaded_count=0 duplicate_count=0 "
+                f"error={message}"
             )
 
             # 오류를 다시 발생시켜 main()에서도 실패를 알 수 있게 한다.
             raise
 
-        # 현재 페이지에서 API가 보내준 차량 수를 누적한다.
-        total_count += len(cars)
+        # 전체 실행의 입력 수와 처리 수를 누적한다.
+        total_input += input_count
+        total_processed += processed_count
 
-        # 현재 페이지에서 MySQL 저장에 성공한 차량 수를 누적한다.
-        total_loaded += loaded_count
+        # 현재 페이지까지의 car_listing 전체 행 개수를 확인한다.
+        current_count = count_car_listings()
+
+        # 실행 시작 후 새로 INSERT된 누적 행 개수를 계산한다.
+        current_loaded_count = current_count - before_count
+
+        # 실행 시작 후 기존 car_id로 처리된 누적 행 개수를 계산한다.
+        current_duplicate_count = total_processed - current_loaded_count
 
         # 현재 페이지의 MySQL 저장이 성공했다는 로그를 남긴다.
         write_log(
-            f"api_source={api_source} page={page_number} "
-            f"mysql_insert=PASS input_count={len(cars)} "
-            f"loaded_count={loaded_count}"
+            f"api_source={api_source} page={page_number}, "
+            f"mysql_insert=PASS input_count={input_count}, "
+            f"processed_count={processed_count}, "
+            f"loaded_count={current_loaded_count}, "
+            f"duplicate_count={current_duplicate_count}"
         )
 
         # 현재 페이지 적재가 끝난 뒤에만 다음 주소를 가져온다.
         next_url = get_next_url(payload)
         page_number += 1
 
+    # 크롤링 종료 후 car_listing 전체 행 개수를 다시 확인한다.
+    after_count = count_car_listings()
+    loaded_count = after_count - before_count
+    duplicate_count = total_processed - loaded_count
+
+    # 전체 실행 결과를 로그에 남긴다.
+    write_log(
+        f"api_source={api_source} run_status=PASS, "
+        f"total_input={total_input}, "
+        f"total_processed={total_processed}, "
+        f"loaded_count={loaded_count}, "
+        f"duplicate_count={duplicate_count}, "
+        f"before_count={before_count} after_count={after_count}"
+    )
+
     print(f"수집 출처: {api_source}")
-    print(f"전체 수집 건수: {total_count}")
-    print(f"전체 MySQL 적재 건수: {total_loaded}")
+    print(f"전체 입력 건수: {total_input}")
+    print(f"전체 처리 건수: {total_processed}")
+    print(f"전체 신규 적재 건수: {loaded_count}")
+    print(f"전체 중복 처리 건수: {duplicate_count}")
     print(f"로그 파일: {LOG_FILE}")
 
-    return total_loaded
+    return loaded_count
 
 
 def main():

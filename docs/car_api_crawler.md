@@ -60,10 +60,33 @@ cars = payload.get("data")
 
 ## loader 호출
 ```python
-loaded_count = insert_cars(cars)
+processed_count = insert_cars(cars)
 ```
 차량 정리, 검증, MySQL 저장은 `loader.py`가 담당한다.
+`insert_cars()`의 반환값은 신규 INSERT 수가 아니라 현재 페이지에서 처리한 차량 수다.
 저장 성공 시 `PASS`, 실패 시 `FAIL` 로그를 남긴다.
+
+## 전체 개수 확인
+크롤러 시작 전에 `car_listing` 전체 행 개수를 확인한다.
+
+```python
+before_count = count_car_listings()
+```
+
+현재 페이지 적재 후 전체 행 개수를 다시 확인한다.
+
+```python
+current_count = count_car_listings()
+```
+
+실행 시작 후 새로 INSERT된 누적 수를 계산한다.
+
+```python
+loaded_count = current_count - before_count
+```
+
+모든 페이지 처리가 끝나면 실행 후 전체 행 개수로 최종 `loaded_count`를 다시 계산한다.
+`duplicate_count`는 처리한 차량 수에서 `loaded_count`를 뺀 값이다.
 
 ## 다음 페이지
 ```python
@@ -79,7 +102,7 @@ next 주소 없음 → 수집 종료
 ## 페이지 설정
 ```python
 PAGE_SIZE = 20
-MAX_PAGES = 1
+MAX_PAGES = 5
 ```
 `PAGE_SIZE`는 한 페이지의 차량 수다.
 `MAX_PAGES`는 처리할 최대 페이지 수다.
@@ -94,8 +117,20 @@ MAX_PAGES = 1
 로그 파일은 `config/car_api_crawler.log`이다.
 시간, API 출처, 페이지, 저장 결과, 차량 수를 기록한다.
 ```text
-mysql_insert=PASS input_count=20 loaded_count=20
+mysql_insert=PASS input_count=20 processed_count=20 loaded_count=17 duplicate_count=3
+```
+로그 필드 순서는 `input_count → processed_count → loaded_count → duplicate_count`다.
+
+`input_count`와 `processed_count`는 현재 페이지의 값이다.
+`loaded_count`와 `duplicate_count`는 현재 페이지까지의 실행 누적값이다.
+
+모든 페이지 처리가 끝나면 전체 실행 결과를 추가로 기록한다.
+
+```text
+run_status=PASS input_count=40 processed_count=40 loaded_count=17 duplicate_count=23 before_count=100 after_count=117
 ```
 
+`loaded_count`는 실행 전후 `car_listing` 전체 행 개수 차이로 계산한다.
+크롤러는 크론탭에서 정해진 주기로 실행한다.
 ## 한 줄 정리
 API에서 차량을 페이지별로 가져와 loader에 넘기고 결과를 기록한다.
