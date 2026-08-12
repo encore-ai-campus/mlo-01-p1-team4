@@ -115,14 +115,29 @@ def connect_mysql():
         raise RuntimeError("mysql-connector-python을 먼저 설치하세요.")
 
     connection = mysql.connect(
-    host=os.getenv("MYSQL_HOST", "3.39.250.187"),
-    port=int(os.getenv("MYSQL_PORT", "3306")),
-    database=os.getenv("MYSQL_DATABASE", "project1"),
-    user=os.getenv("MYSQL_USER", "adminencore"),
-    password=os.getenv("MYSQL_PASSWORD","Encore7890!"),
-)
+        host=os.getenv("MYSQL_HOST", "3.39.250.187"),
+        port=int(os.getenv("MYSQL_PORT", "3306")),
+        database=os.getenv("MYSQL_DATABASE", "project1"),
+        user=os.getenv("MYSQL_USER", "adminencore"),
+        password=os.getenv("MYSQL_PASSWORD", "Encore7890!"),
+    )
 
     return connection
+
+
+def count_car_listings():
+    """car_listing 테이블의 전체 행 개수를 반환한다."""
+    connection = connect_mysql()
+    cursor = connection.cursor()
+
+    try:
+        cursor.execute(f"SELECT COUNT(*) FROM {TABLE_NAME}")
+        result = cursor.fetchone()
+        return int(result[0])
+
+    finally:
+        cursor.close()
+        connection.close()
 
 
 def car_values(car):
