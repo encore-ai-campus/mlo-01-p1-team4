@@ -8,8 +8,6 @@
 
 차량정보는 현재 팀이 선택한 로컬 목록 source를 기준으로 하고, FAQ는 로컬 `/faqs` HTML을 기준으로 한다.
 
-프로젝트 brief의 저장소 역할은 그대로 적용한다. 정형 차량정보는 MySQL, 문서형 FAQ는 MongoDB에 저장한다. Day1에는 두 저장소에 소량 sample만 연결한다.
-
 ## 1. 저장소 결정
 
 | 데이터 | 저장소 | collection/table |
@@ -118,21 +116,7 @@ db.brand_faq.createIndex(
 
 조회 기준은 `brand_id`·brand·category와 `faq_id`다. `brand_id`는 source가 제공하는 영문 브랜드 코드이고, `brand`는 화면 표시 기업명이다. 기업명이 변경되면 source가 제공하는 최신 `brand_id`와 `brand`를 반영한다. 질문·답변 full-text index는 실제 검색 요구가 생긴 뒤 추가한다.
 
-## 4. 전처리 전·후 산출물과 품질 결과
-
-```text
-raw/<run_id>/vehicle.json
-raw/<run_id>/faq.json
-processed/<run_id>/vehicle.json 또는 vehicle.csv
-processed/<run_id>/faq.json
-quality/<run_id>/result.json
-logs/<run_id>/pipeline.log
-logs/<run_id>/error.log
-```
-
-품질 결과에는 track별 `input_count`, `accepted_count`, `rejected_count`, `skipped_count`, `loaded_count`를 기록한다. raw는 원본, processed는 변환 결과로 구분한다.
-
-## 5. 적재 규칙
+## 4. 적재 규칙
 
 ### 차량정보
 
@@ -150,7 +134,7 @@ logs/<run_id>/error.log
 - 기업명이 변경되면 source가 제공하는 최신 `brand_id`와 `brand`를 반영한다.
 - 질문·답변·공식 source URL·확인일이 없는 document는 적재하지 않는다.
 
-## 6. 예시
+## 5. 예시
 
 ### 차량 record
 
@@ -188,15 +172,7 @@ logs/<run_id>/error.log
 }
 ```
 
-## 7. AWS 저장소 소량 연결
-
-- MySQL target은 프로젝트 환경에 따라 local MySQL, Amazon Linux MySQL 또는 승인된 RDS로 주입한다.
-- FAQ target은 승인된 MongoDB 연결정보로 주입한다.
-- 실제 credential은 `.env.example`에 넣지 않고 환경변수 또는 secret으로 주입한다.
-- Day1 확인량은 차량 1건과 FAQ 1건이다.
-- MySQL 1행, MongoDB 1 document, 전처리 전·후 파일, 품질 결과, 실행 log를 확인한다.
-
-## 8. Day21 확인 범위
+## 6. Day21 확인 범위
 
 1. 차량 HTML/API 한 건을 받아 전처리 후 MySQL `car_listing`에 적재한다.
 2. FAQ HTML 한 건을 받아 전처리 후 MongoDB `brand_faq`에 적재한다.
