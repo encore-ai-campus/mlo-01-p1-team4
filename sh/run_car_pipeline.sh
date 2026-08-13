@@ -47,10 +47,10 @@ fi
 cd "${PROJECT_DIR}"
 
 echo "크롤러 시작"
-"${PYTHON_BIN}" "${PROJECT_DIR}/src/car_api_crawler.py"
+"${PYTHON_BIN}" "${PROJECT_DIR}/config/car_api_crawler.py"
 
 echo "품질 검증 시작"
-"${PYTHON_BIN}" "${PROJECT_DIR}/src/vehicle_quality.py"
+"${PYTHON_BIN}" "${PROJECT_DIR}/config/vehicle_quality.py"
 
 QUALITY_REPORT="${PROJECT_DIR}/quality_check_output/quality-report.json"
 if [[ ! -s "${QUALITY_REPORT}" ]]; then

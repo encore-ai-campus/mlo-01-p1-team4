@@ -79,13 +79,13 @@ def get_cars(payload):
 
 
 def get_next_url(payload):
-    """응답의 crawl.next에서 다음 페이지 주소를 가져온다."""
-    crawl = payload.get("crawl")
+    """응답의 links.next에서 다음 페이지 주소를 가져온다."""
+    links = payload.get("links")
 
-    if crawl is None:
+    if links is None:
         return None
 
-    next_url = crawl.get("next")
+    next_url = links.get("next")
 
     if not next_url:
         return None
