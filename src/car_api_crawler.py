@@ -13,11 +13,11 @@ from loader import count_car_listings, insert_cars
 BASE_URL = "http://43.203.233.157"
 PUBLIC_KEY_PATH = "/api/v1/public-key"
 CARS_PATH = "/api/v1/cars"
-PAGE_SIZE = 20
+PAGE_SIZE = 100
 
-# 최대 500페이지까지 수집한다.
-# 전체 페이지를 수집하려면 0으로 바꾼다.
-MAX_PAGES = 500
+# API의 next_url이 없어질 때까지 전체 페이지를 수집한다.
+# 테스트할 때만 1 이상의 숫자로 줄여서 사용한다.
+MAX_PAGES = 0
 REQUEST_TIMEOUT = 10
 REQUEST_INTERVAL = 2
 LOG_FILE = Path(__file__).with_name("car_api_crawler.log")
