@@ -62,7 +62,7 @@
 - `config/car_api_crawler.log`: 크롤링·적재 로그 저장
 - `logs/car_pipeline.log`: 전체 파이프라인 실행 로그 저장
 
-```text
+`text
 car_pipeline.cron
   → run_car_pipeline.sh
   → car_api_crawler.py
@@ -70,7 +70,14 @@ car_pipeline.cron
   → vehicle_quality.py
   → quality-report.json
 
+<<<<<<< HEAD
 ## 7. 수행결과(테스트/시연 페이지)
+=======
+
+
+
+## 8. 수행결과(테스트/시연 페이지)
+>>>>>>> 2213c4a4e0cd877dd1d8ec89ff4b299549dc44ec
 
 - 추가 예정
 
