@@ -9,14 +9,14 @@ from loader import count_car_listings, insert_cars
 
 
 # API 주소와 실행 조건은 여기서 수정한다.
-BASE_URL = "http://192.168.0.51:4000"
+BASE_URL = "http://43.203.233.157"
 PUBLIC_KEY_PATH = "/api/v1/public-key"
 CARS_PATH = "/api/v1/cars"
 PAGE_SIZE = 20
 
 # 처음에는 한 페이지만 수집해서 확인한다.
 # 전체 페이지를 수집하려면 0으로 바꾼다.
-MAX_PAGES = 0
+MAX_PAGES = 1
 REQUEST_TIMEOUT = 10
 LOG_FILE = Path(__file__).with_name("car_api_crawler.log")
 
@@ -223,4 +223,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
