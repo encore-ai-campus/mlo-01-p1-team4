@@ -1,92 +1,80 @@
-# loader.py 메모
+# loader.py
 
 ## 역할
 
-`src/loader.py`는 크롤러가 전달한 차량 목록을 정리하고 검증한 뒤
-`project1.car_listing`에 저장한다.
+크롤러가 받은 차량 JSON을 MySQL `project1.car_listing` 테이블에 맞게 바꾸고 저장한다.
 
 ```text
-API 원본 차량
-  → normalize_car()
-  → validate_car()
-  → save_cars()
-  → MySQL car_listing upsert
+원본 차량 JSON → normalize_car() → validate_car() → save_cars() → MySQL
 ```
-
-실행의 시작점은 `src/car_api_crawler.py`이며, `loader.py`는 크롤러에서
-함수로 호출된다.
 
 ## 필드 변환
 
 ```text
-id                         → car_id
-location.province          → region
-location.city              → sub_region
-brand.name                 → brand
-modelYear                  → model_year
-fuelType                   → fuel_type
-mileageKm                  → mileage_km
-price                      → price_krw
-status                     → status
-firstRegistration          → registration_date
+id                    → car_id
+location.province     → region
+location.city         → sub_region
+brand.name            → brand
+modelYear             → model_year
+fuelType              → fuel_type
+mileageKm             → mileage_km
+price                 → price_krw
+status                → status
+firstRegistration     → registration_date
 ```
 
-연식·주행거리·가격은 정수로 변환하고 등록일은 `DATE` 값으로 변환한다.
-`status`는 `AVAILABLE`, `RESERVED`, `SOLD` 중 하나만 허용한다.
+## 함수 흐름
 
-## 저장
+### `normalize_car(raw)`
 
-`save_cars()`는 페이지의 차량들을 하나의 transaction으로 저장한다.
+API 원본에서 필요한 값만 꺼낸다.
+필드 이름을 MySQL 컬럼명으로 바꾸고, 숫자와 날짜 형식도 변환한다.
+
+### `validate_car(car)`
+
+필수값이 비어 있는지 확인한다.
+`status`는 `AVAILABLE`, `RESERVED`, `SOLD` 중 하나인지 확인한다.
+
+### `connect_mysql()`
+
+`db_config.py`의 `DB_CONFIG`를 가져와 MySQL에 연결한다.
 
 ```python
-for car in cars:
-    cursor.execute(INSERT_SQL, car_values(car))
-
-connection.commit()
+return mysql.connect(**DB_CONFIG)
 ```
 
-`INSERT_SQL`은 `car_id` 기본키가 이미 있으면
-`ON DUPLICATE KEY UPDATE`로 기존 행의 차량 정보를 갱신한다.
+### `count_car_listings()`
 
-- 새 `car_id`: INSERT
-- 기존 `car_id`: UPDATE
-- 중간 오류: 해당 페이지 transaction rollback
+`car_listing` 테이블의 전체 행 수를 반환한다.
+크롤러가 신규 적재 건수를 계산할 때 사용한다.
 
-`insert_cars()`의 반환값은 신규 INSERT 수가 아니라 검증과 저장이 끝난
-현재 페이지의 처리 차량 수다. 신규 INSERT 수와 중복 처리 수는 크롤러가
-실행 전후 테이블 개수로 계산한다.
+### `car_values(car)`
 
-## DB 연결
+정제된 차량 dictionary를 SQL에 넣을 tuple 순서로 바꾼다.
 
-DB 접속 정보는 다음 환경변수를 사용한다.
+### `save_cars(cars)`
+
+차량 목록을 한 번에 저장한다.
+모두 성공하면 `commit()`하고, 중간에 오류가 나면 `rollback()`한다.
+
+### `insert_cars(raw_cars)`
+
+크롤러가 직접 호출하는 함수다.
+각 차량을 정제하고 검증한 뒤 `save_cars()`로 보낸다.
+
+## 중복 처리
+
+`car_id`가 이미 있으면 `ON DUPLICATE KEY UPDATE`가 실행된다.
 
 ```text
-MYSQL_HOST
-MYSQL_PORT
-MYSQL_DATABASE
-MYSQL_USER
-MYSQL_PASSWORD
+새 car_id       → INSERT
+기존 car_id     → 기존 차량 정보 UPDATE
 ```
 
-## 테이블과 개수 확인
+따라서 `insert_cars()`의 반환값은 새로 추가된 행 수가 아니라 처리한 차량 수다.
+실제 신규 적재 수는 크롤러가 실행 전후 테이블 개수로 계산한다.
 
-테이블 생성 SQL은 `sql/project1_schema.sql`에 있다.
+## 데이터베이스 설정
 
-`count_car_listings()`는 다음 쿼리로 현재 행 개수를 확인한다.
-
-```sql
-SELECT COUNT(*) FROM car_listing;
-```
-
-크롤러는 이 값을 사용해 다음 결과를 계산한다.
-
-```text
-loaded_count = 실행 후 전체 행 개수 - 실행 전 전체 행 개수
-duplicate_count = total_processed - loaded_count
-```
-
-## 오류 처리
-
-차량 필수값 또는 상태값 검증에 실패하면 저장하지 않고 오류를 발생시킨다.
-DB 저장 중 오류가 나면 rollback한 뒤 크롤러에 오류를 전달하고, 크롤러가
-실행 로그를 남긴다.
+DB 접속 정보는 `src/db_config.py`에서 관리한다.
+환경변수를 직접 읽는 방식이 아니라 `DB_CONFIG` dictionary를 사용한다.

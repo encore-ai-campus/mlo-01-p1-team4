@@ -1,9 +1,10 @@
 """중고차 JSON을 MySQL car_listing 테이블에 저장하는 loader."""
 
 import json
-import os
 from datetime import date
 from pathlib import Path
+
+from db_config import DB_CONFIG
 
 try:
     import mysql.connector
@@ -114,15 +115,7 @@ def connect_mysql():
     if mysql is None:
         raise RuntimeError("mysql-connector-python을 먼저 설치하세요.")
 
-    connection = mysql.connect(
-        host=os.getenv("MYSQL_HOST", "127.0.0.1"),
-        port=int(os.getenv("MYSQL_PORT", "3306")),
-        database=os.getenv("MYSQL_DATABASE", "project1"),
-        user=os.getenv("MYSQL_USER", "root"),
-        password=os.getenv("MYSQL_PASSWORD"),
-    )
-
-    return connection
+    return mysql.connect(**DB_CONFIG)
 
 
 def count_car_listings():

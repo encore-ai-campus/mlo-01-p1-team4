@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+import time
 
 import requests
 
@@ -18,6 +19,7 @@ PAGE_SIZE = 20
 # 전체 페이지를 수집하려면 0으로 바꾼다.
 MAX_PAGES = 1
 REQUEST_TIMEOUT = 10
+REQUEST_INTERVAL = 2
 LOG_FILE = Path(__file__).with_name("car_api_crawler.log")
 
 
@@ -181,6 +183,8 @@ def collect_and_save():
         # 현재 페이지 적재가 끝난 뒤에만 다음 주소를 가져온다.
         next_url = get_next_url(payload)
         page_number += 1
+        if next_url:
+            time.sleep(REQUEST_INTERVAL)
 
     # 크롤링 종료 후 car_listing 전체 행 개수를 다시 확인한다.
     after_count = count_car_listings()
