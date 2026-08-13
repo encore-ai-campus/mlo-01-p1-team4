@@ -1,5 +1,5 @@
-/home/ec2-user/project/src/car_api_crawler.log
-/home/ec2-user/project/logs/car_pipeline.log {
+/home/ec2-user/first-pj-web/src/car_api_crawler.log
+/home/ec2-user/first-pj-web/logs/car_pipeline.log {
     daily
     rotate 7
     compress

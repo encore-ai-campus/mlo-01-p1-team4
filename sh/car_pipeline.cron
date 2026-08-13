@@ -1,1 +1,1 @@
-0 * * * * /usr/bin/bash /home/ec2-user/project/sh/run_car_pipeline.sh
+0 * * * * /usr/bin/bash /home/ec2-user/first-pj-web/sh/run_car_pipeline.sh
