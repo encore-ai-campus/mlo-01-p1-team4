@@ -42,11 +42,17 @@
 
 ## 4. 요구사항 명세서
 
-- 첨부된 brd.md 문서를 참조
+- [BRD 문서](./docs/brd.md)
+
+![alt text](image-4.png)
 
 ## 5. ERD
 
-- 첨부된 erd.md 문서를 참조
+- [ERD 문서](./docs/erd.md)
+
+![alt text](image-3.png)
+
+![alt text](image-1.png)
 
 ## 6. 주요 프로시저
 
@@ -72,9 +78,6 @@ car_pipeline.cron
 
 
 ## 7. 수행결과(테스트/시연 페이지)
-
-
-## 8. 수행결과(테스트/시연 페이지)
 
 - 추가 예정
 
