@@ -1,0 +1,6 @@
+# crontab -e에서 아래 설정을 등록한다.
+SHELL=/bin/bash
+MAILTO=""
+
+# 매시 정각에 크롤링 → MySQL 적재 → 품질 검증 실행
+0 * * * * /bin/bash /home/ec2-user/project/sh/run_car_pipeline.sh
