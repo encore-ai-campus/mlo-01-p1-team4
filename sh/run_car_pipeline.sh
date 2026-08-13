@@ -8,7 +8,7 @@ mkdir -p "${LOG_DIR}"
 cd "${PROJECT_DIR}" || exit 1
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 크롤러 시작" >> "${LOG_FILE}"
-python3 src/car_api_crawler.py >> "${LOG_FILE}" 2>&1
+/usr/bin/python3 src/car_api_crawler.py >> "${LOG_FILE}" 2>&1
 
 if [ $? -ne 0 ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] 크롤러 실패" >> "${LOG_FILE}"
@@ -16,7 +16,7 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 품질 검증 시작" >> "${LOG_FILE}"
-python3 src/vehicle_quality.py >> "${LOG_FILE}" 2>&1
+/usr/bin/python3 src/vehicle_quality.py >> "${LOG_FILE}" 2>&1
 
 if [ $? -ne 0 ]; then
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] 품질 검증 실패" >> "${LOG_FILE}"
