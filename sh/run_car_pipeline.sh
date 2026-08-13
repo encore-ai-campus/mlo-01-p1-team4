@@ -2,7 +2,7 @@
 
 PROJECT_DIR="/home/ec2-user/first-pj-web"
 ENV_FILE="${PROJECT_DIR}/.env"
-PYTHON_BIN="${PROJECT_DIR}/.venv/bin/python"
+PYTHON_BIN="/usr/bin/python3"
 LOG_DIR="${PROJECT_DIR}/logs"
 LOG_FILE="${LOG_DIR}/car_pipeline.log"
 QUALITY_REPORT="${PROJECT_DIR}/quality_check_output/quality-report.json"
