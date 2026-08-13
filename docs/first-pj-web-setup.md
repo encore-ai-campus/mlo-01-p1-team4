@@ -33,10 +33,11 @@ MongoDB 실제_DB.brand_faq   ─┘
 ## 2. 디렉토리 구조
 
 웹 서버의 최종 구조는 다음과 같다.
+`first-pj-web`은 기존 웹사이트 프로젝트이므로 그대로 유지하고, 차량 크롤러는 별도 `project` 폴더에서 관리한다.
 
 ```text
 /home/ec2-user/
-├── first-pj-web/                    # 웹사이트 프로젝트
+├── first-pj-web/                    # 기존 웹사이트 프로젝트(그대로 유지)
 │   ├── app.py                       # Flask 서버 및 DB 조회 코드
 │   ├── .env                         # DB 접속정보
 │   ├── requirements.txt             # 설치 패키지 목록(선택)
@@ -44,22 +45,49 @@ MongoDB 실제_DB.brand_faq   ─┘
 │   │   └── index.html               # 차량 + FAQ 화면
 │   └── static/                      # CSS, JavaScript, 이미지
 │
-└── project/                         # 크롤러 소스 보관 위치
-    ├── 차량_크롤러_폴더/
-    └── FAQ_크롤러_폴더/
+├── project/                       # 차량 크롤러
+│   ├── .env                       # 차량 DB 접속정보
+│   │
+│   ├── config/
+│   │   ├── car_api_crawler.py     # 차량 API 수집
+│   │   ├── db_config.py           # MySQL 접속정보 관리
+│   │   ├── loader.py              # 차량 정제·검증·MySQL 적재
+│   │   ├── requirements.txt       # Python 패키지 목록
+│   │   ├── vehicle_quality.py     # 적재 데이터 품질검증
+│   │   └── car_api_crawler.log    # 크롤러 실행 로그
+│   │
+│   ├── logs/
+│   │   ├── car_pipeline.log       # 파이프라인 실행 로그
+│   │   └── car_pipeline.log-날짜  # 날짜별 보관 로그
+│   │
+│   ├── quality_check_output/
+│   │   ├── processed-cars.json    # 처리된 차량 데이터
+│   │   └── quality-report.json    # 품질검증 결과
+│   │
+│   └── sh/
+│       ├── run_car_pipeline.sh    # 크롤러·품질검증 실행
+│       ├── car_pipeline.cron      # 크론탭 주기 설정
+│       └── car_pipeline.logrotate # 로그 순환 설정
+│
+└── faq/                             # FAQ 크롤러 소스 보관 위치
 ```
 
 ### 크롤러 위치는 별도 관리
 
-크롤러 소스는 `first-pj-web` 안에 넣지 않고, 같은 상위 경로의 `project` 디렉토리 안에 각각 둔다.
+크롤러 소스는 `first-pj-web` 안에 넣지 않는다.
+차량 크롤러는 `project`, FAQ 크롤러는 `faq`에 각각 둔다.
 
 ```text
-/home/ec2-user/first-pj-web
-/home/ec2-user/project/차량_크롤러_폴더
-/home/ec2-user/project/FAQ_크롤러_폴더
+/home/ec2-user/first-pj-web              # 기존 웹사이트 폴더, 수정하지 않음
+/home/ec2-user/project/config
+/home/ec2-user/project/logs
+/home/ec2-user/project/quality_check_output
+/home/ec2-user/project/sh
+/home/ec2-user/faq                        # FAQ 크롤러 폴더
 ```
 
-이 문서에서는 크롤러 소스의 내부 코드와 실행 설정은 다루지 않는다. 나중에 실제 크롤러 소스를 기준으로 별도 실행 방법을 추가한다.
+차량 크롤러는 EC2의 `project` 아래 `config`와 `sh`를 사용한다.
+FAQ 크롤러는 차량 크롤러와 별도의 폴더에서 관리한다.
 
 역할은 다음처럼 분리한다.
 
@@ -67,6 +95,24 @@ MongoDB 실제_DB.brand_faq   ─┘
 차량 크롤러 → MySQL에 차량 데이터 저장
 FAQ 크롤러  → MongoDB에 FAQ 데이터 저장
 웹사이트    → 두 DB의 데이터를 조회해서 출력
+```
+
+차량 크롤러 파일 역할은 다음과 같다.
+
+```text
+project/.env                       # 차량 크롤러의 DB 접속정보를 저장한다.
+project/config/car_api_crawler.py # 차량 API를 페이지 단위로 호출하고 loader를 실행한다.
+project/config/loader.py           # 차량 데이터를 정제·검증하고 MySQL에 저장한다.
+project/config/db_config.py        # MySQL 접속 정보를 한 곳에서 관리한다.
+project/config/vehicle_quality.py  # car_listing에 저장된 차량 데이터 품질을 검사한다.
+project/config/requirements.txt    # Python 실행에 필요한 패키지를 적는다.
+project/config/car_api_crawler.log # 차량 크롤러 실행 결과를 기록한다.
+project/sh/run_car_pipeline.sh     # 차량 크롤링과 품질검증을 순서대로 실행한다.
+project/sh/car_pipeline.cron       # 파이프라인을 실행할 cron 설정을 적는다.
+project/sh/car_pipeline.logrotate  # 실행 로그를 순환 보관하도록 설정한다.
+project/logs/car_pipeline.log      # 파이프라인 전체 실행 로그를 기록한다.
+project/quality_check_output/processed-cars.json # 품질검증 후 차량 데이터를 저장한다.
+project/quality_check_output/quality-report.json # 품질검증 결과와 상태를 저장한다.
 ```
 
 ## 3. Amazon Linux에 Python 설치
@@ -675,8 +721,16 @@ first-pj-web/.env
     └── MongoDB 접속정보
 
 project/
-    ├── 차량 크롤러 소스 보관
-    └── FAQ 크롤러 소스 보관
+    ├── .env 차량 DB 접속정보
+    ├── config/ 차량 크롤러 Python 파일과 실행 로그
+    ├── sh/ 차량 파이프라인·cron 설정
+    ├── logs/ 파이프라인 실행 로그
+    └── quality_check_output/ 품질검증 결과
+
+faq/
+    └── FAQ 크롤러 소스
 ```
 
-웹사이트는 데이터를 조회하고, 크롤러는 데이터를 수집·저장한다. 크롤러 소스는 `project` 디렉토리에 별도로 두므로 웹사이트 코드와 섞이지 않는다.
+웹사이트는 기존 `first-pj-web`에서 데이터를 조회한다.
+차량 크롤러는 `project`, FAQ 소스는 `faq`에 분리해 웹사이트 코드와 섞이지 않게 관리한다.
+이번 차량 크롤러 작업에서는 `first-pj-web`의 파일을 삭제하거나 수정하지 않는다.
