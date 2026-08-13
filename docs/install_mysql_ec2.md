@@ -1,209 +1,210 @@
 # EC2 MySQL 설치 스크립트 사용 안내
 
-이 문서는 스크립트명이 [`install_mysql_ec2.sh`](./install_mysql_ec2.sh)를 기준으로 작성되었습니다.
-스크립트는 Amazon Linux 계열 EC2에서 다음 작업을 순서대로 수행합니다.
+Amazon Linux 2023 EC2에 MySQL Community Server를 설치하고, 프로젝트용 데이터베이스와 테이블을 준비하는 문서입니다.
 
-1. `dnf` 사용 가능 여부 확인
-2. Python 3와 pip 설치
-3. `mysql-connector-python` 설치
-4. MySQL 저장소 RPM 및 GPG 키 설정
-5. MySQL Community Server 설치
-6. MySQL 서비스 시작 및 재시작
-7. 임시 root 비밀번호 확인
-8. root 비밀번호 변경
-9. 원격 접속용 MySQL 계정 생성
-10. 같은 디렉터리의 SQL 스키마 파일 실행
+## 1. 전체 작업 순서
 
-## 디렉터리 구성
+스크립트는 다음 작업을 순서대로 진행합니다.
 
-스크립트는 `project1_schema.sql` 파일을 스크립트와 같은 디렉터리에서 찾습니다.
+1. dnf 사용 가능 여부 확인
+2. MySQL 공식 저장소와 서명 키 등록
+3. MySQL Community Server 설치
+4. MySQL 서비스 시작 및 자동 시작 등록
+5. 초기 root 비밀번호 확인과 변경
+6. 웹 서버용 DB 계정 생성
+7. 스키마 파일 실행
+8. 데이터베이스와 테이블 확인
 
-```text
+## 2. 파일 구조
+
+실행 전 파일을 한 디렉터리에 둡니다.
+
+~~~text
 mysql-install/
 ├── install_mysql_ec2.sh
 └── project1_schema.sql
-```
+~~~
 
-SQL 파일명이 다르면 스크립트의 다음 값을 실제 파일명으로 변경해야 합니다.
+스키마 파일을 실행하는 경로는 실제 파일 위치와 일치해야 합니다.
 
-```bash
-SQL_FILE="$SCRIPT_DIR/project1_schema.sql"
-```
-`다른 sql 파일이 실행됨을 방지하기 위함이며 최초 기본 설정 스크립트인점을 감안해서 설계하였습니다.
+## 3. 설치 변수 확인
 
-## 실행 전 설정
+설치 스크립트의 계정 설정을 확인합니다.
 
-스크립트 상단의 계정 정보를 실제 값으로 수정합니다.
+~~~bash
+MYSQL_ROOT_PASSWORD='root_password_here'
+MYSQL_USER='web_user'
+MYSQL_PASSWORD='web_password_here'
+~~~
 
-```bash
-MYSQL_ROOT_PASSWORD="root 비밀번호"
-MYSQL_USER="aaa"
-MYSQL_PASSWORD="aaa 계정 비밀번호"
-```
-`해당 라인의 설정할 root 비밀번호를 입력하고 생성할 user를 입력하면 스크립트 실행시 생성하는 로직으로 설계하였습니다. 
-MYSQL_ROOT_PASSWORD`는 최초 설치 후 root 계정에 설정할 비밀번호입니다.
-`MYSQL_USER`와 `MYSQL_PASSWORD`는 원격 접속에 사용할 별도 계정 정보입니다.
+괄호 안의 예시 값은 실제 사용할 값으로 변경합니다.
+비밀번호는 다른 사람에게 공유하지 않습니다.
 
-## 실행 권한 부여
+## 4. EC2 운영체제 확인
 
-```bash
+~~~bash
+cat /etc/os-release
+command -v dnf
+~~~
+
+dnf 명령이 없을 때만 다음 명령을 실행합니다.
+
+~~~bash
+sudo yum install -y dnf
+~~~
+
+## 5. 설치 스크립트 실행
+
+스크립트가 있는 디렉터리로 이동한 뒤 실행 권한을 부여합니다.
+
+~~~bash
+cd ~/mysql-install
 chmod +x install_mysql_ec2.sh
-```
-
-## 스크립트 실행
-
-```bash
 ./install_mysql_ec2.sh
-```
+~~~
 
-스크립트는 root 계정으로 실행하거나, 실행 계정에 `sudo` 권한이 있어야 합니다.
+## 6. MySQL 저장소 등록
 
-## Python 설치
+필요한 도구를 설치합니다.
 
-다음 패키지를 설치합니다.
+~~~bash
+sudo dnf install -y wget curl
+~~~
 
-```bash
-sudo dnf install -y python3 python3-pip
-```
+MySQL 저장소 패키지를 내려받아 설치합니다.
 
-이후 Python에서 MySQL에 연결하기 위한 커넥터를 설치합니다.
+~~~bash
+sudo wget -O /tmp/mysql80-community-release-el9-1.noarch.rpm https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm
+sudo rpm -Uvh /tmp/mysql80-community-release-el9-1.noarch.rpm
+~~~
 
-```bash
-sudo python3 -m pip install mysql-connector-python
-```
+공식 서명 키를 등록합니다.
 
-## MySQL 저장소 설정
-
-스크립트는 다음 순서로 MySQL 저장소를 설정합니다.
-
-```bash
-sudo wget https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm
-```
-
-```bash
-sudo curl -fsSL \
-  https://repo.mysql.com/RPM-GPG-KEY-mysql-2025 \
-  -o /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql-2025
-```
-
-```bash
+~~~bash
+sudo curl -fsSL https://repo.mysql.com/RPM-GPG-KEY-mysql-2025 -o /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql-2025
 sudo rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-mysql-2025
-```
+~~~
 
-저장소 설치 후 GPG 키 경로를 2025년 키 경로로 변경합니다.
+저장소의 키 경로를 확인하거나 수정합니다.
 
-```bash
-sudo sed -i \
-  's/RPM-GPG-KEY-mysql-[0-9]{4}/RPM-GPG-KEY-mysql-2025/g' \
-  /etc/yum.repos.d/mysql-community*.repo
-```
+~~~bash
+sudo nano /etc/yum.repos.d/mysql-community.repo
+~~~
 
-## MySQL 설치 및 서비스 시작
+gpgkey 항목이 다음 경로를 사용하도록 확인합니다.
 
-저장소 메타데이터를 갱신한 뒤 MySQL Community Server를 설치합니다.
+~~~ini
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-mysql-2025
+~~~
 
-```bash
+## 7. MySQL 설치와 서비스 시작
+
+저장소 정보를 갱신합니다.
+
+~~~bash
 sudo dnf clean all
 sudo rm -rf /var/cache/dnf
 sudo dnf makecache
-sudo dnf install mysql-community-server -y
-```
+~~~
 
-서비스는 다음 명령으로 시작하고 부팅 시 자동 실행하도록 설정합니다.
+MySQL 서버를 설치합니다.
 
-```bash
+~~~bash
+sudo dnf install -y mysql-community-server
+~~~
+
+서비스를 시작하고 EC2 재부팅 후에도 자동으로 실행되도록 설정합니다.
+
+~~~bash
 sudo systemctl enable --now mysqld
 sudo systemctl restart mysqld
-```
+sudo systemctl status mysqld --no-pager
+~~~
 
-서비스 상태 확인:
+active (running)이 보이면 정상적으로 실행 중입니다.
 
-```bash
-sudo systemctl --no-pager --full status mysqld
-```
+## 8. root 계정 비밀번호 설정
 
-## root 비밀번호 변경 및 계정 생성
+설치 직후 생성된 임시 비밀번호를 확인합니다.
 
-MySQL 최초 설치 시 `/var/log/mysqld.log`에 임시 root 비밀번호가 기록됩니다. 스크립트가 해당 값을 확인해 MySQL에 접속합니다.
+~~~bash
+sudo grep 'temporary password' /var/log/mysqld.log
+~~~
 
-```bash
-MYSQL_TEMP_ROOT_PASSWORD="$($SUDO awk '/temporary password/ {print $NF}' /var/log/mysqld.log | tail -n 1)"
-```
-이후 다음 SQL을 실행합니다.
+확인한 임시 비밀번호로 접속합니다.
 
-```sql
-ALTER USER 'root'@'localhost'
-IDENTIFIED BY 'MYSQL_ROOT_PASSWORD 값';
+~~~bash
+mysql --connect-expired-password -u root -p
+~~~
 
-CREATE USER IF NOT EXISTS 'MYSQL_USER 값'@'%'
-IDENTIFIED BY 'MYSQL_PASSWORD 값';
+MySQL 화면에서 root 비밀번호를 변경합니다.
 
-ALTER USER 'MYSQL_USER 값'@'%'
-IDENTIFIED BY 'MYSQL_PASSWORD 값';
+~~~sql
+ALTER USER 'root'@'localhost' IDENTIFIED BY '새로운_root_비밀번호';
+~~~
 
-GRANT ALL PRIVILEGES ON *.*
-TO 'MYSQL_USER 값'@'%'
-WITH GRANT OPTION;
+비밀번호 정책에 맞는 대문자, 소문자, 숫자, 특수문자를 사용합니다.
 
+## 9. 웹 서버용 계정 생성
+
+root 계정으로 MySQL에 접속한 상태에서 실행합니다.
+
+~~~sql
+CREATE USER IF NOT EXISTS 'web_user'@'%' IDENTIFIED BY '웹_사용자_비밀번호';
+ALTER USER 'web_user'@'%' IDENTIFIED BY '웹_사용자_비밀번호';
+GRANT ALL PRIVILEGES ON project1.* TO 'web_user'@'%';
 FLUSH PRIVILEGES;
-```
+~~~
 
-## SQL 파일 실행
+웹 애플리케이션은 root 계정 대신 web_user를 사용합니다.
+실제 운영 환경에서는 필요한 범위의 권한만 부여하는 것이 안전합니다.
 
-root 및 별도 계정 생성이 끝나면 스크립트와 같은 디렉터리의 `project1_schema.sql`을 실행합니다.
+## 10. 프로젝트 스키마 적용
 
-```bash
-$SUDO mysql \
-    -u "$MYSQL_USER" \
-    -p"$MYSQL_PASSWORD" \
-    < "$SQL_FILE"
-```
+스키마 파일을 실행합니다.
 
-SQL 파일에는 데이터베이스 생성, 테이블 생성, 인덱스 생성 등의 구문을 작성할 수 있습니다.
+~~~bash
+mysql -u web_user -p < /경로/project1_schema.sql
+~~~
 
-## 외부 접속에 필요한 AWS 설정
+비밀번호를 물으면 웹 서버용 DB 계정의 비밀번호를 입력합니다.
 
-MySQL 계정의 Host가 `%`이므로 MySQL 내부에서는 모든 호스트에서 접속할 수 있습니다. 하지만 실제 외부 접속은 EC2 Security Group이 허용해야 합니다.
-Security Group 인바운드 규칙:
+스키마 파일은 프로젝트 데이터베이스와 차량 데이터 조회에 필요한 테이블 및 인덱스를 준비합니다.
 
-```text
-Protocol: TCP
-Port: 3306
-Source: 허용할 IP/32 또는 필요한 Security Group
-```
-`0.0.0.0/0`은 모든 인터넷에서 접속할 수 있으므로 운영 환경에서는 사용하지 않는 걸 상정합니다.
+## 11. 설치 결과 확인
 
-## Python 소스에서 접속
+데이터베이스 목록을 확인합니다.
 
-설치된 커넥터는 다음과 같이 사용할 수 있습니다.
+~~~bash
+mysql -u web_user -p -e "SHOW DATABASES;"
+~~~
 
-```python
-import mysql.connector
+프로젝트 데이터베이스의 테이블을 확인합니다.
 
-connection = mysql.connector.connect(
-    host="EC2_PUBLIC_IP 또는 DNS",
-    port=3306,
-    user="aaa",
-    password="aaa 계정 비밀번호",
-    database="project1",
-)
-```
+~~~bash
+mysql -u web_user -p -e "USE project1; SHOW TABLES;"
+~~~
 
-운영 환경에서는 DB 주소와 비밀번호를 Python 소스에 직접 작성하지 말고 환경변수, AWS Systems Manager Parameter Store 또는 AWS Secrets Manager를 사용하는 것이 좋습니다.
+## 12. AWS 보안 그룹 설정
 
-## 주요 주의사항
+MySQL EC2의 인바운드 규칙에 다음 규칙을 추가합니다.
 
-- `MYSQL_ROOT_PASSWORD`와 `MYSQL_PASSWORD`는 스크립트에 평문으로 저장됩니다.
-- `aaa@'%'` 계정에는 전체 권한과 `WITH GRANT OPTION`이 부여됩니다.
-- MySQL CLI에 `-p비밀번호`를 사용하면 비밀번호 관련 보안 경고가 출력될 수 있습니다.
-- Amazon Linux 2023에서는 `curl-minimal`이 기본 설치되어 일반 `curl` 패키지와 충돌할 수 있습니다.
-- `project1_schema.sql` 파일이 스크립트와 같은 디렉터리에 있어야 합니다.
-- 설치 저장소에 접근하려면 EC2에 Internet Gateway, NAT Gateway 또는 적절한 VPC Endpoint 경로가 필요합니다.
+| 항목 | 설정 |
+|---|---|
+| 유형 | 사용자 지정 TCP |
+| 포트 | 3306 |
+| 소스 | 웹 서버 보안 그룹 또는 웹 서버의 내부 IP |
 
-##  설계의도
+0.0.0.0/0으로 전체 인터넷에 공개하지 않습니다.
 
-- `최초 아무것도 존재하지 않는 Ec2 작업시 일일히 Python 및 mysql을 설치하고 최초 DB 테이블 세팅에 대한 부담을 줄이기 위함입니다.
-- `해당 스크립트를 실행할 경우 Python 및 Python Connector가 설치되며 이후 순차적으로 mysql 설치를 완료합니다.
-- `이후 Mysql 설치가 완료되면 최초 root 계정 및 사전에 세팅한 admin 권한을 가진 user 계정을 생성합니다.
-- `admin 권한을 가진 user 계정 기반으로 사전에 적재한 .sql 파일을 실행함으로써 기본적인 테이블 세팅이 완료되므로 효율적으로 생각할수 있겠습니다.
+## 13. 운영 시 주의사항
 
+- 웹 서버에서 root 계정으로 접속하지 않습니다.
+- DB 비밀번호를 문서, 소스 코드, 공개 저장소에 남기지 않습니다.
+- 스키마 파일의 실제 경로가 틀리면 테이블이 생성되지 않습니다.
+- 웹 서버가 접속할 수 있도록 보안 그룹의 포트와 소스 범위를 확인합니다.
+- 설치 후 SHOW DATABASES와 SHOW TABLES로 실제 생성 결과를 확인합니다.
+
+## 14. 정리
+
+이 문서는 MySQL 설치, 서비스 실행, 계정 생성, 스키마 적용, 내부망 접속 허용, 설치 결과 확인에 필요한 내용만 정리한 것입니다.

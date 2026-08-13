@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Data Hub</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #f4f7fb;
+            color: #172033;
+            font-family: Arial, "Noto Sans KR", sans-serif;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #101828, #1d3557);
+            color: white;
+            padding: 32px 6%;
+        }
+
+        .header small {
+            color: #8ec5ff;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .header h1 {
+            margin: 10px 0 6px;
+            font-size: 32px;
+        }
+
+        .header p {
+            margin: 0;
+            color: #cbd5e1;
+        }
+
+        .container {
+            width: 88%;
+            max-width: 1400px;
+            margin: 28px auto;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card,
+        .panel {
+            background: white;
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 5px 20px rgba(15, 23, 42, 0.06);
+        }
+
+        .stat-card span {
+            display: block;
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card strong {
+            font-size: 28px;
+            color: #1d3557;
+        }
+
+        .panel {
+            margin-bottom: 24px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .panel-header h2 {
+            margin: 0;
+            font-size: 21px;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d8e0ea;
+            border-radius: 9px;
+            font-size: 14px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 850px;
+        }
+
+        th {
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 13px;
+            text-align: left;
+            padding: 13px;
+        }
+
+        td {
+            border-bottom: 1px solid #edf1f5;
+            padding: 14px 13px;
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background: #f8fbff;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .available {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .reserved {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .sold {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .faq-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .faq-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .faq-card .category {
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .faq-card h3 {
+            margin: 9px 0;
+            font-size: 16px;
+        }
+
+        .faq-card p {
+            color: #64748b;
+            line-height: 1.6;
+            margin: 6px 0 0;
+        }
+
+        .empty,
+        .error {
+            padding: 30px;
+            text-align: center;
+            color: #64748b;
+        }
+
+        .error {
+            color: #dc2626;
+        }
+
+        @media (max-width: 800px) {
+            .stats,
+            .faq-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filters {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                width: 94%;
+            }
+
+            .header h1 {
+                font-size: 25px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <small>VEHICLE DATA COLLECTION PLATFORM</small>
+        <h1>차량 데이터 허브</h1>
+        <p>수집된 차량 데이터와 브랜드 FAQ를 한 곳에서 확인합니다.</p>
+    </header>
+
+    <main class="container">
+        <section class="stats">
+            <div class="stat-card">
+                <span>전체 차량</span>
+                <strong id="totalCars">-</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>판매 가능 차량</span>
+                <strong id="availableCars">-</strong>
+            </div>
+
+            <div class="stat-card">
+                <span>평균 차량 가격</span>
+                <strong id="averagePrice">-</strong>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <h2>차량 수집 데이터</h2>
+            </div>
+
+            <div class="filters">
+                <input
+                    id="searchInput"
+                    type="text"
+                    placeholder="브랜드, 지역 검색"
+                >
+
+                <select id="statusFilter">
+                    <option value="">전체 상태</option>
+                    <option value="AVAILABLE">판매 가능</option>
+                    <option value="RESERVED">예약</option>
+                    <option value="SOLD">판매 완료</option>
+                </select>
+
+                <select id="brandFilter">
+                    <option value="">전체 브랜드</option>
+                </select>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>차량번호</th>
+                            <th>브랜드</th>
+                            <th>지역</th>
+                            <th>연식</th>
+                            <th>연료</th>
+                            <th>주행거리</th>
+                            <th>가격</th>
+                            <th>상태</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="carTable">
+                        <tr>
+                            <td colspan="8" class="empty">
+                                차량 데이터를 불러오는 중입니다.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <h2>브랜드 FAQ</h2>
+            </div>
+
+            <div id="faqList" class="faq-grid">
+                <div class="empty">
+                    FAQ 데이터를 불러오는 중입니다.
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Flask가 전달한 MySQL 차량 데이터
+        let allCars = {{ cars | tojson }};
+
+        // Flask가 전달한 MongoDB FAQ 데이터
+        const allFaqs = {{ faqs | tojson }};
+
+        const money = value =>
+            new Intl.NumberFormat("ko-KR").format(value || 0) + "원";
+
+        const number = value =>
+            new Intl.NumberFormat("ko-KR").format(value || 0);
+
+        function statusText(status) {
+            const values = {
+                AVAILABLE: ["판매 가능", "available"],
+                RESERVED: ["예약", "reserved"],
+                SOLD: ["판매 완료", "sold"]
+            };
+
+            return values[status] || [status || "-", ""];
+        }
+
+        function renderCars() {
+            const keyword =
+                document.getElementById("searchInput").value.toLowerCase();
+
+            const status =
+                document.getElementById("statusFilter").value;
+
+            const brand =
+                document.getElementById("brandFilter").value;
+
+            const filtered = allCars.filter(car => {
+                const text = `${car.brand || ""} ${car.region || ""} ${car.sub_region || ""}`
+                    .toLowerCase();
+
+                return (
+                    text.includes(keyword) &&
+                    (!status || car.status === status) &&
+                    (!brand || car.brand === brand)
+                );
+            });
+
+            const table = document.getElementById("carTable");
+
+            if (filtered.length === 0) {
+                table.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="empty">
+                            조건에 맞는 차량이 없습니다.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            table.innerHTML = filtered.map(car => {
+                const [statusLabel, statusClass] =
+                    statusText(car.status);
+
+                return `
+                    <tr>
+                        <td>${car.car_id ?? "-"}</td>
+                        <td><strong>${car.brand ?? "-"}</strong></td>
+                        <td>${car.region ?? "-"} ${car.sub_region ?? ""}</td>
+                        <td>${car.model_year ?? "-"}년</td>
+                        <td>${car.fuel_type ?? "-"}</td>
+                        <td>${number(car.mileage_km)} km</td>
+                        <td>${money(car.price_krw)}</td>
+                        <td>
+                            <span class="badge ${statusClass}">
+                                ${statusLabel}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join("");
+        }
+
+        function renderFaqs(faqs) {
+            const target = document.getElementById("faqList");
+
+            if (!faqs || faqs.length === 0) {
+                target.innerHTML = `
+                    <div class="empty">
+                        FAQ 데이터가 없습니다.
+                    </div>
+                `;
+                return;
+            }
+
+            // MongoDB FAQ 문서의 실제 필드만 표시한다.
+            target.innerHTML = faqs.map(faq => `
+                <article class="faq-card">
+                    <div class="category">
+                        ${faq.company ?? "-"} · ${faq.category ?? "-"}
+                    </div>
+
+                    <h3>${faq.question ?? "질문 없음"}</h3>
+
+                    <p>${faq.answer ?? "답변 없음"}</p>
+
+                    <p>
+                        <strong>수집일:</strong>
+                        ${faq.collected_at ?? "-"}
+                    </p>
+
+                    <p>
+                        <strong>링크:</strong>
+                        ${faq.link ?? "-"}
+                    </p>
+                </article>
+            `).join("");
+        }
+
+        function loadData() {
+            document.getElementById("totalCars").textContent =
+                number(allCars.length);
+
+            document.getElementById("availableCars").textContent =
+                number(
+                    allCars.filter(
+                        car => car.status === "AVAILABLE"
+                    ).length
+                );
+
+            const average =
+                allCars.length
+                    ? allCars.reduce(
+                        (sum, car) =>
+                            sum + Number(car.price_krw || 0),
+                        0
+                    ) / allCars.length
+                    : 0;
+
+            document.getElementById("averagePrice").textContent =
+                money(average);
+
+            const brands = [
+                ...new Set(
+                    allCars
+                        .map(car => car.brand)
+                        .filter(Boolean)
+                )
+            ];
+
+            const brandFilter =
+                document.getElementById("brandFilter");
+
+            brands.forEach(brand => {
+                brandFilter.innerHTML +=
+                    `<option value="${brand}">${brand}</option>`;
+            });
+
+            renderCars();
+            renderFaqs(allFaqs);
+        }
+
+        document
+            .getElementById("searchInput")
+            .addEventListener("input", renderCars);
+
+        document
+            .getElementById("statusFilter")
+            .addEventListener("change", renderCars);
+
+        document
+            .getElementById("brandFilter")
+            .addEventListener("change", renderCars);
+
+        loadData();
+    </script>
+</body>
+</html>
