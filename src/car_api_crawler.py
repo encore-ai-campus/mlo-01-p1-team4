@@ -15,9 +15,9 @@ PUBLIC_KEY_PATH = "/api/v1/public-key"
 CARS_PATH = "/api/v1/cars"
 PAGE_SIZE = 20
 
-# 처음에는 한 페이지만 수집해서 확인한다.
+# 최대 500페이지까지 수집한다.
 # 전체 페이지를 수집하려면 0으로 바꾼다.
-MAX_PAGES = 1
+MAX_PAGES = 500
 REQUEST_TIMEOUT = 10
 REQUEST_INTERVAL = 2
 LOG_FILE = Path(__file__).with_name("car_api_crawler.log")
@@ -79,13 +79,13 @@ def get_cars(payload):
 
 
 def get_next_url(payload):
-    """응답의 links.next에서 다음 페이지 주소를 가져온다."""
-    links = payload.get("links")
+    """응답의 crawl.next에서 다음 페이지 주소를 가져온다."""
+    crawl = payload.get("crawl")
 
-    if links is None:
+    if crawl is None:
         return None
 
-    next_url = links.get("next")
+    next_url = crawl.get("next")
 
     if not next_url:
         return None
