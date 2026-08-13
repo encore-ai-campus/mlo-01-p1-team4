@@ -1,0 +1,7 @@
+.env
+src/db_config.py
+__pycache__/
+*.py[cod]
+*.log
+logs/
+quality_check_output/
