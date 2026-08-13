@@ -114,12 +114,16 @@ def connect_mysql():
     if mysql is None:
         raise RuntimeError("mysql-connector-python을 먼저 설치하세요.")
 
+    password = os.getenv("MYSQL_PASSWORD")
+    if not password:
+        raise RuntimeError("MYSQL_PASSWORD 환경변수를 설정하세요.")
+
     connection = mysql.connect(
-        host=os.getenv("MYSQL_HOST", "3.39.250.187"),
+        host=os.getenv("MYSQL_HOST", "127.0.0.1"),
         port=int(os.getenv("MYSQL_PORT", "3306")),
         database=os.getenv("MYSQL_DATABASE", "project1"),
-        user=os.getenv("MYSQL_USER", "adminencore"),
-        password=os.getenv("MYSQL_PASSWORD", "Encore7890!"),
+        user=os.getenv("MYSQL_USER", "root"),
+        password=password,
     )
 
     return connection

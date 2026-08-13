@@ -13,7 +13,7 @@
   → MySQL car_listing upsert
   → 실행 전후 행 개수 비교
   → 로그 기록
-  → links.next가 있으면 다음 페이지 처리
+  → links.next 또는 crawl.next가 있으면 다음 페이지 처리
 ```
 
 차량 수집의 실행 파일은 `src/car_api_crawler.py`다. `src/loader.py`는
@@ -27,15 +27,15 @@ BASE_URL = "http://192.168.0.51:4000"
 PUBLIC_KEY_PATH = "/api/v1/public-key"
 CARS_PATH = "/api/v1/cars"
 PAGE_SIZE = 20
-MAX_PAGES = 2
+MAX_PAGES = 0
 ```
 
 - `/api/v1/public-key`에서 `data.current.api_key`를 가져온다.
 - 차량 API 요청에는 `X-API-Key` header를 사용한다.
 - 첫 페이지에는 `sort=newest`, `page_size=20`을 보낸다.
 - 응답의 차량 목록은 `payload.data`에서 가져온다.
-- 다음 페이지는 `payload.links.next`를 사용한다.
-- `MAX_PAGES=2`이면 1~2페이지를 처리하고, `MAX_PAGES=0`이면
+- 다음 페이지는 `payload.links.next` 또는 `payload.crawl.next`를 사용한다.
+- `MAX_PAGES=0`이면
   다음 페이지가 없을 때까지 처리한다.
 
 ## 3. 원본 필드와 MySQL 컬럼
@@ -64,7 +64,7 @@ MAX_PAGES = 2
 4. `validate_car()`가 필수값과 상태값을 검사한다.
 5. 검사를 통과한 차량을 한 transaction으로 MySQL에 저장한다.
 6. 저장 중 오류가 발생하면 해당 transaction을 rollback한다.
-7. 저장 성공 후에만 `links.next`를 확인해 다음 페이지로 이동한다.
+7. 저장 성공 후에만 `links.next` 또는 `crawl.next`를 확인해 다음 페이지로 이동한다.
 
 ## 5. 실행
 
