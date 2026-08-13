@@ -70,7 +70,7 @@ duplicate_count = 3
 차량을 놓칠 수 있다.
 
 마지막 페이지 여부는 신규 INSERT 수가 아니라 API 응답의
-`links.next` 또는 `crawl.next` 존재 여부로 판단한다.
+`links.next` 존재 여부로 판단한다.
 
 ## 5. 실패 처리
 

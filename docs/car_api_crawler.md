@@ -16,11 +16,12 @@ BASE_URL = "http://192.168.0.51:4000"
 PUBLIC_KEY_PATH = "/api/v1/public-key"
 CARS_PATH = "/api/v1/cars"
 PAGE_SIZE = 20
-MAX_PAGES = 0
+MAX_PAGES = 2
 ```
 
 - `PAGE_SIZE`는 한 페이지 요청 건수다.
 - `MAX_PAGES`는 처리할 최대 페이지 수다.
+- `MAX_PAGES=2`는 1페이지부터 2페이지까지 처리한다.
 - `MAX_PAGES=0`은 API의 다음 페이지가 없어질 때까지 처리한다.
 - 로그 파일은 `src/car_api_crawler.log`다.
 
@@ -44,11 +45,11 @@ headers = {"X-API-Key": api_key}
 ```
 
 첫 페이지 이후에는 API 응답의 다음 주소를 그대로 요청한다.
-현재 코드는 `payload.links.next` 또는 `payload.crawl.next`를 읽어 다음 URL을 만든다.
+현재 코드는 `payload.links.next`를 읽어 다음 URL을 만든다.
 
 ```python
 cars = payload.get("data")
-next_url = (payload.get("links") or {}).get("next") or (payload.get("crawl") or {}).get("next")
+next_url = payload.get("links", {}).get("next")
 ```
 
 차량 목록이 비어 있으면 해당 로그를 남기고 수집을 종료한다.
