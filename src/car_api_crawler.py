@@ -16,7 +16,7 @@ PAGE_SIZE = 20
 
 # 처음에는 한 페이지만 수집해서 확인한다.
 # 전체 페이지를 수집하려면 0으로 바꾼다.
-MAX_PAGES = 2
+MAX_PAGES = 0
 REQUEST_TIMEOUT = 10
 LOG_FILE = Path(__file__).with_name("car_api_crawler.log")
 
