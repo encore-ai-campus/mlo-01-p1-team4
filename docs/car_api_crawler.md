@@ -3,7 +3,7 @@
 ## 역할
 
 중고차 API에서 차량을 페이지 단위로 받아 `loader.py`에 전달한다.
-저장이 끝나면 다음 페이지를 요청하고, 실행 결과를 로그에 남긴다.
+저장이 끝나면 응답의 다음 페이지 주소를 요청하고, 실행 결과를 로그에 남긴다.
 
 ```text
 API 요청 → 차량 목록 추출 → loader.py → MySQL car_listing → 로그
@@ -15,7 +15,7 @@ API 요청 → 차량 목록 추출 → loader.py → MySQL car_listing → 로�
 BASE_URL = "http://43.203.233.157"
 PUBLIC_KEY_PATH = "/api/v1/public-key"
 CARS_PATH = "/api/v1/cars"
-PAGE_SIZE = 20
+PAGE_SIZE = 100
 MAX_PAGES = 1
 REQUEST_TIMEOUT = 10
 REQUEST_INTERVAL = 2
@@ -38,7 +38,7 @@ REQUEST_INTERVAL = 2
 ### 2. `fetch_page()`
 
 API 키를 `X-API-Key` 헤더에 넣어 한 페이지를 요청한다.
-첫 페이지에는 `sort`와 `page_size`를 함께 보낸다.
+첫 요청에는 `sort=newest`와 `page_size=100`을 함께 보낸다.
 
 ### 3. `get_cars()`와 `get_next_url()`
 
@@ -72,7 +72,7 @@ duplicate_count   = processed_count - loaded_count
 ## 로그 예시
 
 ```text
-mysql_insert=PASS input_count=20 processed_count=20 loaded_count=17 duplicate_count=3
+mysql_insert=PASS input_count=100 processed_count=100 loaded_count=97 duplicate_count=3
 ```
 
 ## 실행
@@ -83,4 +83,6 @@ mysql_insert=PASS input_count=20 processed_count=20 loaded_count=17 duplicate_co
 python .\src\car_api_crawler.py
 ```
 
-전체 수집은 한 페이지 테스트가 성공한 뒤 `MAX_PAGES = 0`으로 변경한다.
+전체 수집은 한 페이지 테스트가 성공한 뒤 `MAX_PAGES = 0`으로 실행한다.
+`MAX_PAGES = 0`이면 API 응답의 `links.next`가 없어질 때까지
+다음 페이지를 계속 요청한다.

@@ -23,20 +23,20 @@
 ## 2. API 입력
 
 ```python
-BASE_URL = "http://192.168.0.51:4000"
+BASE_URL = "http://43.203.233.157"
 PUBLIC_KEY_PATH = "/api/v1/public-key"
 CARS_PATH = "/api/v1/cars"
-PAGE_SIZE = 20
-MAX_PAGES = 2
+PAGE_SIZE = 100
+MAX_PAGES = 0
 ```
 
 - `/api/v1/public-key`에서 `data.current.api_key`를 가져온다.
 - 차량 API 요청에는 `X-API-Key` header를 사용한다.
-- 첫 페이지에는 `sort=newest`, `page_size=20`을 보낸다.
+- 첫 요청에는 `sort=newest`, `page_size=100`을 보낸다.
 - 응답의 차량 목록은 `payload.data`에서 가져온다.
 - 다음 페이지는 `payload.links.next`를 사용한다.
 - `MAX_PAGES=2`이면 1~2페이지를 처리하고, `MAX_PAGES=0`이면
-  다음 페이지가 없을 때까지 처리한다.
+  다음 페이지 주소가 없을 때까지 처리한다.
 
 ## 3. 원본 필드와 MySQL 컬럼
 
