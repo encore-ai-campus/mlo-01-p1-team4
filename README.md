@@ -94,7 +94,11 @@ car_pipeline.cron
 ![alt text](car_listing.png)
 ![alt text](compass.png)
 
-## 8. 한 줄 회고
+## 8. 발표자료 pptx
+
+  https://docs.google.com/presentation/d/1s7SKVUvnJ04j2lU--HoazHOqwh-0Hd0R/edit?slide=id.p4#slide=id.p4
+
+## 9. 한 줄 회고
 
 | 이름 | 회고 |
 |---|---|
