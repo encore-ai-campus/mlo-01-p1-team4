@@ -77,9 +77,22 @@ car_pipeline.cron
   → quality-report.json
 
 
+- `faq_crawler.py`: 자동차 브랜드 FAQ 데이터 크롤링 및 MongoDB 적재
+- `car_faq.sh`: FAQ 크롤러 실행 및 성공·실패 로그 기록
+    → faq_run.log: 크롤러 시작·종료 및 실행 상태 기록
+    → faq_result.log: 신규 적재·실패·전체 데이터 건수 기록
+    → faq_error.log: 크롤링 및 MongoDB 적재 오류 상세 기록
+- `requirements.txt`: 크롤러 실행에 필요한 Python 패키지 관리
+
+`text
+  → Cron: FAQ 크롤링 파이프라인 2시간마다 자동 실행
+  → Logrotate: FAQ 로그 파일 주기적 회전·압축 관리
+
+
 ## 7. 수행결과(테스트/시연 페이지)
 
 ![alt text](car_listing.png)
+![alt text](compass.png)
 
 ## 8. 한 줄 회고
 
