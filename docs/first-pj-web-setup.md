@@ -69,25 +69,34 @@ MongoDB 실제_DB.brand_faq   ─┘
 │       ├── car_pipeline.cron      # 크론탭 주기 설정
 │       └── car_pipeline.logrotate # 로그 순환 설정
 │
-└── faq/                             # FAQ 크롤러 소스 보관 위치
+├── project_faq/
+│   ├── config/
+│   │   ├── faq_crawler.py          # FAQ 크롤링·DB 적재
+│   │   └── requirements.txt        # Python 패키지 목록
+│   ├── sh/
+│   │   └── car_faq.sh              # 크롤러·품질검증 실행
+│   └── logs/
+│       ├── faq_run.log             # 실행시작/종료 로그
+│       ├── faq_result.log          # 신규적재와 실패건수 로그
+│       └── faq_error.log           # 실제 오류 내용기록 로그
 ```
 
 ### 크롤러 위치는 별도 관리
 
 크롤러 소스는 `first-pj-web` 안에 넣지 않는다.
-차량 크롤러는 `project`, FAQ 크롤러는 `faq`에 각각 둔다.
+차량 크롤러는 `project`, FAQ 크롤러는 `project_faq`에 각각 둔다.
 
 ```text
-/home/ec2-user/first-pj-web              # 기존 웹사이트 폴더, 수정하지 않음
+/home/ec2-user/first-pj-web                # 기존 웹사이트 폴더, 수정하지 않음
 /home/ec2-user/project/config
 /home/ec2-user/project/logs
 /home/ec2-user/project/quality_check_output
 /home/ec2-user/project/sh
-/home/ec2-user/faq                        # FAQ 크롤러 폴더
+/home/ec2-user/project_faq/logs             # FAQ 크롤러 폴더
 ```
 
 차량 크롤러는 EC2의 `project` 아래 `config`와 `sh`를 사용한다.
-FAQ 크롤러는 차량 크롤러와 별도의 폴더에서 관리한다.
+FAQ 크롤러는 EC2의 `project_faq` 아래 `config`와 `sh`를 사용한다.
 
 역할은 다음처럼 분리한다.
 
@@ -113,6 +122,15 @@ project/sh/car_pipeline.logrotate  # 실행 로그를 순환 보관하도록 설
 project/logs/car_pipeline.log      # 파이프라인 전체 실행 로그를 기록한다.
 project/quality_check_output/processed-cars.json # 품질검증 후 차량 데이터를 저장한다.
 project/quality_check_output/quality-report.json # 품질검증 결과와 상태를 저장한다.
+```
+FAQ 크롤러 파일 역할은 다음과 같다.
+
+```text
+project_faq/config/faq_crawler.py
+project_faq/sh/car_faq.sh
+project_faq/logs/faq_run.log
+project_faq/logs/faq_result.log
+project_faq/logs/faq_error.log
 ```
 
 ## 3. Amazon Linux에 Python 설치
@@ -332,6 +350,8 @@ ON car_listing (region, sub_region, brand, model_year);
 현재 웹 화면은 아래 필드를 기준으로 FAQ를 출력한다.
 
 ```text
+데이터베이스: project1
+컬렉션: brand_faq
 company
 category
 question
@@ -339,6 +359,40 @@ answer
 link
 collected_at
 ```
+
+구조:
+```text
+project1
+└── brand_faq
+    ├── _id                FAQ 고유 식별자
+    ├── company            회사명
+    ├── category           카테고리
+    ├── question           질문 제목
+    ├── answer             답변 내용
+    ├── link               원본 링크
+    └── collected_at       수집일
+```
+// FAQ 데이터베이스를 선택한다.
+use project1
+
+// FAQ 목록을 조회한다.
+db.brand_faq.find(
+  {},
+  {
+    _id: 0,
+    company: 1,
+    category: 1,
+    question: 1,
+    answer: 1,
+    link: 1,
+    collected_at: 1
+  }
+)
+
+db.brand_faq.createIndex({
+  company: 1,
+  category: 1
+})
 
 예시:
 
@@ -481,7 +535,7 @@ function renderFaqs(faqs) {
             <h3>${faq.question ?? "질문 없음"}</h3>
             <p>${faq.answer ?? "답변 없음"}</p>
             <p>수집일: ${faq.collected_at ?? "-"}</p>
-            <p>링크: ${faq.link ?? "-"}</p>
+            <a href="#">링크: ${faq.link ?? "-"}</a>
         </article>
     `).join("");
 }
@@ -727,8 +781,10 @@ project/
     ├── logs/ 파이프라인 실행 로그
     └── quality_check_output/ 품질검증 결과
 
-faq/
-    └── FAQ 크롤러 소스
+project_faq/
+    ├── config/ 차량FAQ 크롤러 Python 파일과 실행 로그
+    ├── sh/ 차량FAQ 파이프라인·cron 설정
+    └── logs/ 파이프라인 실행 로그
 ```
 
 웹사이트는 기존 `first-pj-web`에서 데이터를 조회한다.
